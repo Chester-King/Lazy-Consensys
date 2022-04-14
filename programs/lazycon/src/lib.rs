@@ -25,9 +25,60 @@ pub mod lazycon {
         _proposal_account.expiry_time.push(now_ts);
         _proposal_account.votes_proposal.push(0);
 
+        // for test
+        _proposal_account.total_votes = 4;
 
         Ok(())
     }
+
+
+    pub fn execute(ctx: Context<Execupdate>) -> ProgramResult{
+        
+        // Put the check if the signer has voting power or not
+
+        let _proposal_account = &mut ctx.accounts.proposal_account;
+        let remacc = ctx.remaining_accounts.to_vec();
+        
+        
+        let now_ts = (Clock::get().unwrap().unix_timestamp as u64);
+        
+
+        let mut adrvector = &_proposal_account.user_addresses;
+        let mut amtvector = &_proposal_account.amount_transfer;
+        let mut evector = &_proposal_account.expiry_time;
+        let mut votesvector = &_proposal_account.votes_proposal;
+        let mut totalvote = &_proposal_account.total_votes;
+
+
+            
+
+
+        let lengthV = adrvector.len();
+        let mut endelem = 0;
+        for elem in 0..lengthV {
+            if(now_ts>evector[elem]){
+                endelem = elem;
+                break;
+            }
+            if((votesvector[elem]/totalvote) * 10<4){
+                **_proposal_account.to_account_info().try_borrow_mut_lamports()? -= amtvector[elem];
+                require!(remacc[elem].key()==adrvector[elem],CustomError::WrongInput);
+                **remacc[elem].try_borrow_mut_lamports()? += amtvector[elem];
+            }
+
+        }
+
+        _proposal_account.user_addresses.drain(0..endelem);
+        _proposal_account.amount_transfer.drain(0..endelem);
+        _proposal_account.expiry_time.drain(0..endelem);
+        _proposal_account.votes_proposal.drain(0..endelem);
+
+        
+
+
+        Ok(())
+    }
+
 }
 
 // An enum for custom error codes
@@ -59,6 +110,15 @@ pub struct Dataupdate<'info> {
     pub proposal_account: Account<'info, ProposalAccount>,
     pub signer: Signer<'info>,
     pub system_program: Program <'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct Execupdate<'info> {
+    #[account(mut)]
+    pub proposal_account: Account<'info, ProposalAccount>,
+    pub signer: Signer<'info>,
+    pub system_program: Program <'info, System>,
+    
 }
 
 #[account]

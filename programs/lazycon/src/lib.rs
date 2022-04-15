@@ -56,7 +56,7 @@ pub mod lazycon {
         let lengthV = adrvector.len();
         let mut endelem = 0;
         for elem in 0..lengthV {
-            if(now_ts>evector[elem]){
+            if(now_ts<evector[elem]){
                 endelem = elem;
                 break;
             }

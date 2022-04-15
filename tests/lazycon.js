@@ -96,8 +96,7 @@ describe('lazycon', () => {
     // Add your test here.
     const program = await anchor.workspace.Lazycon;
 
-    let v1 = await anchor.getProvider().connection.getBalance(new anchor.web3.PublicKey("6ZRCB7AAqGre6c72PRz3MHLC73VMYvJ8bi9KHf1HFpNk"));
-    await console.log(v1)
+    
 
     const tx = await program.rpc.execute(
       {
@@ -123,7 +122,6 @@ describe('lazycon', () => {
 
     await console.log(account)
 
-    v1 = await anchor.getProvider().connection.getBalance(new anchor.web3.PublicKey("6ZRCB7AAqGre6c72PRz3MHLC73VMYvJ8bi9KHf1HFpNk"));
-    await console.log(v1)
+    
   });
 });

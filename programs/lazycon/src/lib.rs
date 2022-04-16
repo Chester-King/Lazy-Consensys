@@ -24,6 +24,7 @@ pub mod lazycon {
         _proposal_account.amount_transfer.push(_amounttransfer);
         _proposal_account.expiry_time.push(now_ts);
         _proposal_account.votes_proposal.push(0);
+        _proposal_account.keys_voted.push(vec![]);
 
         // for test
         _proposal_account.total_votes = 4;
@@ -72,6 +73,7 @@ pub mod lazycon {
         _proposal_account.amount_transfer.drain(0..endelem);
         _proposal_account.expiry_time.drain(0..endelem);
         _proposal_account.votes_proposal.drain(0..endelem);
+        _proposal_account.keys_voted.drain(0..endelem);
 
         
 
@@ -127,5 +129,6 @@ pub struct ProposalAccount {
     pub user_addresses: Vec<Pubkey>,
     pub amount_transfer : Vec<u64>,
     pub votes_proposal : Vec<u64>,
+    pub keys_voted : Vec<Vec<Pubkey>>,
     pub total_votes : u64
 }

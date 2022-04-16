@@ -92,6 +92,39 @@ describe('lazycon', () => {
 
   });
 
+  it('Vote Proposal', async () => {
+    // Add your test here.
+    const program = await anchor.workspace.Lazycon;
+    const tx = await program.rpc.votesProposal(
+      new anchor.BN(0),
+      new anchor.BN(0),  // need to pass expiry time
+      provider.wallet.publicKey,
+      new anchor.BN(200),
+      new anchor.BN(45063),
+      {
+        accounts: {
+          signer : provider.wallet.publicKey,
+          proposalAccount : proposalAccount.publicKey,
+          systemProgram : anchor.web3.SystemProgram.programId
+
+        },
+        signers: [
+        ]
+      }
+    );
+    // await console.log("Your transaction signature", tx);
+    let account = await program.account.proposalAccount.fetch(
+      proposalAccount.publicKey
+    );
+
+    await console.log(account)
+    
+    // await console.log(lamports);
+    
+    
+  });
+  
+  
   it('Execute Proposal', async () => {
     // Add your test here.
     const program = await anchor.workspace.Lazycon;

@@ -32,6 +32,29 @@ pub mod lazycon {
         Ok(())
     }
 
+    pub fn votes_proposal(ctx: Context<Voteupdate>, _index: u64, _expiry_time: u64, _user_addresses: Pubkey, _amount_transfer: u64, _votes: u64) -> ProgramResult{
+
+        // we will remove _votes param and fetch it from PDA
+
+        let _proposal_account = &mut ctx.accounts.proposal_account;
+        require!(
+            _proposal_account.user_addresses[_index as usize]==_user_addresses &&
+            // _proposal_account.expiry_time[_index as usize]==_expiry_time &&
+            _proposal_account.amount_transfer[_index as usize]==_amount_transfer
+            ,CustomError::WrongInput);
+        
+        require!(
+            !_proposal_account.keys_voted[_index as usize].contains(&_user_addresses),
+            CustomError::VotingAgain
+        );
+
+        _proposal_account.votes_proposal[_index as usize] = _proposal_account.votes_proposal[_index as usize]+_votes;
+        
+        _proposal_account.keys_voted[_index as usize].push(ctx.accounts.signer.to_account_info().key());
+
+        Ok(())
+    }
+
 
     pub fn execute(ctx: Context<Execupdate>) -> ProgramResult{
         
@@ -93,7 +116,8 @@ pub enum CustomError {
     ChallengeNotExpired,
     ChallengeExpired,
     NoFullConsent,
-    NotEnoughFunds
+    NotEnoughFunds,
+    VotingAgain
 }
 
 
@@ -121,6 +145,14 @@ pub struct Execupdate<'info> {
     pub signer: Signer<'info>,
     pub system_program: Program <'info, System>,
     
+}
+
+#[derive(Accounts)]
+pub struct Voteupdate<'info> {
+    #[account(mut)]
+    pub proposal_account: Account<'info, ProposalAccount>,
+    pub signer: Signer<'info>,
+    pub system_program: Program <'info, System>,
 }
 
 #[account]

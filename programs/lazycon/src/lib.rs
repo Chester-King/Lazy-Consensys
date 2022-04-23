@@ -3,7 +3,7 @@ use anchor_lang::require;
 use anchor_spl::token::{Token, Transfer};
 use std::vec::Vec;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("6RUR6rTsMgSEpXqH25xXj3Qzdfd6MGRDe3P8hT949SsU");
 
 #[program]
 pub mod lazycon {
@@ -115,10 +115,10 @@ pub mod lazycon {
         }
         user_info.name = _name;
         user_info.bump = *ctx.bumps.get("user_account").unwrap();
-        let key = user_info.key();
+        let key = ctx.accounts.user.key();
         let transfer_instruction = Transfer {
-            from: ctx.accounts.user.to_account_info(),
-            to: user_info.to_account_info(),
+            from: ctx.accounts.user.to_account_info().clone(),
+            to: user_info.to_account_info().clone(),
             authority: ctx.accounts.user.to_account_info(),
         };
         let inner = vec![b"user-account".as_ref(), key.as_ref()];
@@ -179,7 +179,7 @@ pub struct Voteupdate<'info> {
     #[account(mut)]
     pub proposal_account: Account<'info, ProposalAccount>,
     pub signer: Signer<'info>,
-    #[account(mut, seeds = [b"user-stats", signer.key().as_ref()], bump = user_account.bump)]
+    #[account(mut, seeds = [b"user-account", signer.key().as_ref()], bump = user_account.bump)]
     pub user_account: Account<'info, UserAccount>,
 }
 

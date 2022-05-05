@@ -1,6 +1,8 @@
 use anchor_lang::prelude::*;
-use anchor_lang::require;
-use anchor_spl::token::{Token, Transfer};
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{CloseAccount, Mint, Token, TokenAccount, Transfer},
+};
 use std::vec::Vec;
 
 declare_id!("6RUR6rTsMgSEpXqH25xXj3Qzdfd6MGRDe3P8hT949SsU");
@@ -104,33 +106,32 @@ pub mod lazycon {
         Ok(())
     }
 
-    pub fn init_user(
-        ctx: Context<CreateUserAccount>,
-        lock_token: u64,
-        _name: String,
-    ) -> Result<()> {
+    pub fn init_user(ctx: Context<CreateUserAccount>, _name: String) -> Result<()> {
         let user_info = &mut ctx.accounts.user_account;
         if _name.as_bytes().len() > 200 {
             panic!();
         }
         user_info.name = _name;
         user_info.bump = *ctx.bumps.get("user_account").unwrap();
-        let key = ctx.accounts.user.key();
-        let transfer_instruction = Transfer {
-            from: ctx.accounts.user.to_account_info().clone(),
-            to: user_info.to_account_info().clone(),
-            authority: ctx.accounts.user.to_account_info(),
+        Ok(())
+    }
+
+    pub fn lock_tokens(ctx: Context<LockTokens>, _lock_tokens: u64) -> Result<()> {
+        let transfer_instruction = anchor_spl::token::Transfer {
+            from: ctx.accounts.user.to_account_info(),
+            to: ctx.accounts.user_vault.to_account_info(),
+            authority: ctx.accounts.signer.to_account_info(),
         };
-        let inner = vec![b"user-account".as_ref(), key.as_ref()];
-        let outer = vec![inner.as_slice()];
-        let cpi_ctx = CpiContext::new_with_signer(
+        // let inner = vec![b"user-account".as_ref(), key.as_ref()];
+        // let outer = vec![inner.as_slice()];
+        let cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             transfer_instruction,
-            outer.as_slice(),
         );
 
-        anchor_spl::token::transfer(cpi_ctx, lock_token)?;
-        user_info.voting_power = lock_token;
+        anchor_spl::token::transfer(cpi_ctx, _lock_tokens)?;
+        let user_info = &mut ctx.accounts.user_account;
+        user_info.voting_power = _lock_tokens;
         Ok(())
     }
 }
@@ -179,7 +180,7 @@ pub struct Voteupdate<'info> {
     #[account(mut)]
     pub proposal_account: Account<'info, ProposalAccount>,
     pub signer: Signer<'info>,
-    #[account(mut, seeds = [b"user-account", signer.key().as_ref()], bump = user_account.bump)]
+    #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
     pub user_account: Account<'info, UserAccount>,
 }
 
@@ -201,14 +202,38 @@ pub struct CreateUserAccount<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 8 + 4 + 200 + 1, seeds = [b"user-account", user.key().as_ref()], bump
+        space = 8 + 8 + 4 + 200 + 1, seeds = [b"user-account".as_ref(), user.key().as_ref()], bump
     )]
     pub user_account: Account<'info, UserAccount>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct LockTokens<'info> {
+    #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub mint_of_token_being_sent: Account<'info, Mint>,
+    #[account(
+        init,
+        payer = signer,
+        seeds = [b"user-vault".as_ref(),signer.key().as_ref()],
+        bump,
+        token::mint = mint_of_token_being_sent,
+        token::authority = user_vault,
+    )]
+    pub user_vault: Account<'info, TokenAccount>,
+    #[account(mut, constraint = user.mint ==  mint_of_token_being_sent.key())]
+    pub user: Account<'info, TokenAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>
+}
+
 #[account]
+#[derive(Default)]
 pub struct UserAccount {
     voting_power: u64,
     name: String,

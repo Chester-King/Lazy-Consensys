@@ -27,8 +27,8 @@ describe("lazycon", async () => {
     program.programId
   );
   const proposalAccount = anchor.web3.Keypair.generate();
-  let mint;
-  let sender_token;
+  let mint: anchor.web3.Keypair;
+  let sender_token:anchor.web3.PublicKey;
   let receiver;
   let receiver_token;
 
@@ -45,61 +45,53 @@ describe("lazycon", async () => {
         programId: spl.TOKEN_PROGRAM_ID,
       }),
       // init mint account
-      spl.createInitializeMintInstruction(mint.publicKey,6,provider.wallet.publicKey,provider.wallet.publicKey,spl.TOKEN_PROGRAM_ID)
+      spl.createInitializeMintInstruction(mint.publicKey, 6, provider.wallet.publicKey, provider.wallet.publicKey, spl.TOKEN_PROGRAM_ID)
     );
 
-    await program.provider.send(create_mint_tx, [mint]);
+    await program.provider.sendAndConfirm(create_mint_tx, [mint])
     // Add your test here.
     // const tx = await program.rpc.initialize({});
     // console.log("Your transaction signature", tx);
     // console.log(await program.provider.connection.getParsedAccountInfo(mint));
-    sender_token = anchor.web3.Keypair.generate();
+    sender_token = await spl.getAssociatedTokenAddress(mint.publicKey, provider.wallet.publicKey, false, spl.TOKEN_PROGRAM_ID, spl.ASSOCIATED_TOKEN_PROGRAM_ID)
+
     let create_sender_token_tx = new Transaction().add(
-      // create token account
-      SystemProgram.createAccount({
-        fromPubkey: provider.wallet.publicKey,
-        newAccountPubkey: sender_token.publicKey,
-        space: spl.AccountLayout.span,
-        lamports: await spl.getMinimumBalanceForRentExemptAccount(program.provider.connection),
-        programId: spl.TOKEN_PROGRAM_ID,
-      }),
       // init mint account
-      spl.createInitializeAccountInstruction(
-        sender_token.publicKey,
-        mint.publicKey, // mint
-        provider.wallet.publicKey,
-        spl.TOKEN_PROGRAM_ID, // owner of token account
+      spl.createAssociatedTokenAccountInstruction(
+        provider.wallet.publicKey, sender_token, provider.wallet.publicKey, mint.publicKey, spl.TOKEN_PROGRAM_ID, spl.ASSOCIATED_TOKEN_PROGRAM_ID
       )
     );
 
-    await program.provider.send(create_sender_token_tx, [sender_token]);
+    await program.provider.sendAndConfirm(create_sender_token_tx);
 
-    receiver = anchor.web3.Keypair.generate();
-    receiver_token = anchor.web3.Keypair.generate();
-    let create_receiver_token_tx = new Transaction().add(
-      // create token account
-      SystemProgram.createAccount({
-        fromPubkey: provider.wallet.publicKey,
-        newAccountPubkey: receiver_token.publicKey,
-        space: spl.AccountLayout.span,
-        lamports: await spl.getMinimumBalanceForRentExemptAccount(program.provider.connection),
-        programId: spl.TOKEN_PROGRAM_ID,
-      }),
-      // init mint account
-      spl.createInitializeAccountInstruction(
-        receiver.publicKey ,
-        mint.publicKey, // mint
-        receiver_token.publicKey,
-        spl.TOKEN_PROGRAM_ID, // owner of token account
-      )
-    );
+    // receiver = anchor.web3.Keypair.generate();
+    // receiver_token = anchor.web3.Keypair.generate();
+    // let create_receiver_token_tx = new Transaction().add(
+    //   // create token account
+    //   SystemProgram.createAccount({
+    //     fromPubkey: provider.wallet.publicKey,
+    //     newAccountPubkey: receiver_token.publicKey,
+    //     space: spl.AccountLayout.span,
+    //     lamports: await spl.getMinimumBalanceForRentExemptAccount(program.provider.connection),
+    //     programId: spl.TOKEN_PROGRAM_ID,
+    //   }),
+    //   // init mint account
+    //   spl.createInitializeAccountInstruction(
+    //     receiver_token.publicKey,
+    //     mint.publicKey, // mint
+    //     provider.wallet.publicKey,
+    //     spl.TOKEN_PROGRAM_ID, // owner of token account
+    //   )
+    // );
 
-    await program.provider.send(create_receiver_token_tx, [receiver_token]);
+    // await program.provider.sendAndConfirm(create_receiver_token_tx, [receiver_token]);
+  });
 
+  it("Mints tokens", async () => {
     let mint_tokens_tx = new Transaction().add(
       spl.createMintToInstruction(// always TOKEN_PROGRAM_ID
         mint.publicKey, // mint
-        sender_token.publicKey, // receiver (sholud be a token account)
+        sender_token, // receiver (sholud be a token account)
         provider.wallet.publicKey, // mint authority
         2e6,
         [], // only multisig account will use. leave it empty now.
@@ -107,31 +99,46 @@ describe("lazycon", async () => {
       )
     );
 
-    await program.provider.send(mint_tokens_tx);
+    await program.provider.sendAndConfirm(mint_tokens_tx);
 
-    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token.publicKey));
+    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
+
   });
+
+  // it('transfter wrapper', async () => {
+  //   let amount = new anchor.BN(1e6);
+  //   await program.rpc.transferWrapper(amount, {
+  //     accounts: {
+  //       sender: program.provider.wallet.publicKey,
+  //       senderToken: sender_token,
+  //       receiverToken: receiver_token.publicKey,
+  //       mint: mint.publicKey,
+  //       tokenProgram: TOKEN_PROGRAM_ID,
+  //     }
+  //   })
+  //   console.log("sender token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
+  //   console.log("receiver token balance: ", await program.provider.connection.getTokenAccountBalance(receiver_token.publicKey));
+
+  // })
+
   it("Initialize Voter", async () => {
-    await program.methods.initUser(new anchor.BN(52),"Test").accounts({
-      user:provider.wallet.publicKey,
-      userAccount:userPDA,
-      tokenProgram:spl.TOKEN_PROGRAM_ID,
-      systemProgram:anchor.web3.SystemProgram.programId,
+    await program.methods.initUser("Test").accounts({
+      user: provider.wallet.publicKey,
+      userAccount: userPDA,
+      tokenProgram: spl.TOKEN_PROGRAM_ID,
+      systemProgram: anchor.web3.SystemProgram.programId,
     }).rpc();
-      let user = await program.account.userAccount.fetch(userPDA)
-      console.log(user) 
+    let user = await program.account.userAccount.fetch(userPDA)
+    console.log(user)
   });
 
   it("Is initialized!", async () => {
     // Add your test here.
-    const tx = await program.rpc.initialize({
-      accounts: {
-        user: provider.wallet.publicKey,
-        proposalAccount: proposalAccount.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      },
-      signers: [proposalAccount],
-    });
+    await program.methods.initialize().accounts({
+      user: provider.wallet.publicKey,
+      proposalAccount: proposalAccount.publicKey,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    }).signers([proposalAccount]).rpc()
     // await console.log("Your transaction signature", tx);
     let account = await program.account.proposalAccount.fetch(
       proposalAccount.publicKey
@@ -140,6 +147,29 @@ describe("lazycon", async () => {
     await console.log(account);
   });
 
+  it("Locks Tokens", async () => {
+    const [userLockVault, _] = await PublicKey.findProgramAddress(
+      [
+        anchor.utils.bytes.utf8.encode("user-vault"),
+        provider.wallet.publicKey.toBuffer(),
+        // spl.TOKEN_PROGRAM_ID.toBuffer(),
+        // mint.publicKey.toBuffer(),
+      ],
+      program.programId
+    );
+    await program.methods.lockTokens(new anchor.BN(50)).accounts({
+      mintOfTokenBeingSent: mint.publicKey,
+      userAccount: userPDA,
+      user: sender_token,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: spl.TOKEN_PROGRAM_ID,
+      userVault: userLockVault
+    }).rpc()
+    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
+    // console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userPDA));
+    let user = await program.account.userAccount.fetch(userPDA)
+    console.log(user)
+  })
   it("Create Proposal", async () => {
     // Add your test here
     const tx = await program.rpc.createProposal(

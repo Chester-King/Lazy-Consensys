@@ -113,6 +113,7 @@ pub mod lazycon {
         }
         user_info.name = _name;
         user_info.bump = *ctx.bumps.get("user_account").unwrap();
+        user_info.lock_time =  Clock::get().unwrap().unix_timestamp as u64;
         Ok(())
     }
 
@@ -122,8 +123,6 @@ pub mod lazycon {
             to: ctx.accounts.user_vault.to_account_info(),
             authority: ctx.accounts.signer.to_account_info(),
         };
-        // let inner = vec![b"user-account".as_ref(), key.as_ref()];
-        // let outer = vec![inner.as_slice()];
         let cpi_ctx = CpiContext::new(
             ctx.accounts.token_program.to_account_info(),
             transfer_instruction,
@@ -132,6 +131,28 @@ pub mod lazycon {
         anchor_spl::token::transfer(cpi_ctx, _lock_tokens)?;
         let user_info = &mut ctx.accounts.user_account;
         user_info.voting_power = _lock_tokens;
+        Ok(())
+    }
+
+    pub fn unlock_tokens(ctx: Context<UnlockTokens>, _vault_bump: u8) -> Result<()> {
+        let user_info = &mut ctx.accounts.user_account;
+        let now = Clock::get().unwrap().unix_timestamp as u64;
+        require!(now >= user_info.lock_time + 864000, CustomError::LockPeriodNotEnded);  //864000s =  10 days min lock period
+        let transfer_instruction = anchor_spl::token::Transfer {
+            from: ctx.accounts.user_vault.to_account_info(),
+            to: ctx.accounts.user.to_account_info(),
+            authority: ctx.accounts.user_vault.to_account_info(),
+        };
+        let bump_vector = _vault_bump.to_le_bytes();
+        let inner = vec![b"user-vault".as_ref(), ctx.accounts.signer.key.as_ref(), bump_vector.as_ref()];
+        let outer = vec![inner.as_slice()];
+        let cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_instruction,
+            outer.as_slice(),
+        );
+        anchor_spl::token::transfer(cpi_ctx, user_info.voting_power)?;
+        user_info.voting_power = 0;
         Ok(())
     }
 }
@@ -148,6 +169,7 @@ pub enum CustomError {
     NoFullConsent,
     NotEnoughFunds,
     VotingAgain,
+    LockPeriodNotEnded
 }
 
 #[derive(Accounts)]
@@ -202,7 +224,7 @@ pub struct CreateUserAccount<'info> {
     #[account(
         init,
         payer = user,
-        space = 8 + 8 + 4 + 200 + 1, seeds = [b"user-account".as_ref(), user.key().as_ref()], bump
+        space = 8 + 8 + 4 + 200 + 1 + 8, seeds = [b"user-account".as_ref(), user.key().as_ref()], bump
     )]
     pub user_account: Account<'info, UserAccount>,
     pub system_program: Program<'info, System>,
@@ -229,7 +251,28 @@ pub struct LockTokens<'info> {
     pub user: Account<'info, TokenAccount>,
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
-    pub rent: Sysvar<'info, Rent>
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(vault_bump: u8)]
+pub struct UnlockTokens<'info> {
+    #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub mint_of_token_being_sent: Account<'info, Mint>,
+    #[account(
+        mut,
+        seeds = [b"user-vault".as_ref(),signer.key().as_ref()],
+        bump=vault_bump,
+    )]
+    pub user_vault: Account<'info, TokenAccount>,
+    #[account(mut, constraint = user.mint ==  mint_of_token_being_sent.key(), constraint = user.owner == signer.key())]
+    pub user: Account<'info, TokenAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 #[account]
@@ -238,6 +281,7 @@ pub struct UserAccount {
     voting_power: u64,
     name: String,
     bump: u8,
+    lock_time: u64,
 }
 
 // #[account]

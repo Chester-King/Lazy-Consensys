@@ -26,6 +26,15 @@ describe("lazycon", async () => {
     ],
     program.programId
   );
+  const [userLockVault, vault_bump] = await PublicKey.findProgramAddress(
+    [
+      anchor.utils.bytes.utf8.encode("user-vault"),
+      provider.wallet.publicKey.toBuffer(),
+      // spl.TOKEN_PROGRAM_ID.toBuffer(),
+      // mint.publicKey.toBuffer(),
+    ],
+    program.programId
+  );
   const proposalAccount = anchor.web3.Keypair.generate();
   let mint: anchor.web3.Keypair;
   let sender_token:anchor.web3.PublicKey;
@@ -148,15 +157,6 @@ describe("lazycon", async () => {
   });
 
   it("Locks Tokens", async () => {
-    const [userLockVault, _] = await PublicKey.findProgramAddress(
-      [
-        anchor.utils.bytes.utf8.encode("user-vault"),
-        provider.wallet.publicKey.toBuffer(),
-        // spl.TOKEN_PROGRAM_ID.toBuffer(),
-        // mint.publicKey.toBuffer(),
-      ],
-      program.programId
-    );
     await program.methods.lockTokens(new anchor.BN(50)).accounts({
       mintOfTokenBeingSent: mint.publicKey,
       userAccount: userPDA,
@@ -166,6 +166,7 @@ describe("lazycon", async () => {
       userVault: userLockVault
     }).rpc()
     console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
+    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userLockVault));
     // console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userPDA));
     let user = await program.account.userAccount.fetch(userPDA)
     console.log(user)
@@ -277,5 +278,20 @@ describe("lazycon", async () => {
 
     await console.log(account);
   });
+  it("UnLocks Tokens", async () => {
+    await program.methods.unlockTokens(vault_bump).accounts({
+      mintOfTokenBeingSent: mint.publicKey,
+      userAccount: userPDA,
+      user: sender_token,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: spl.TOKEN_PROGRAM_ID,
+      userVault: userLockVault
+    }).rpc()
+    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
+    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userLockVault));
+    // console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userPDA));
+    let user = await program.account.userAccount.fetch(userPDA)
+    console.log(user)
+  })
 });
 

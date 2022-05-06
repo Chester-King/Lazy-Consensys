@@ -1,25 +1,30 @@
 use anchor_lang::prelude::*;
-use anchor_lang::require;
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{CloseAccount, Mint, Token, TokenAccount, Transfer},
+};
 use std::vec::Vec;
 
-declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
+declare_id!("6RUR6rTsMgSEpXqH25xXj3Qzdfd6MGRDe3P8hT949SsU");
 
 #[program]
 pub mod lazycon {
     use super::*;
-    pub fn initialize(ctx: Context<Initialize>) -> ProgramResult {
-
+    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
         let _proposal_account = &mut ctx.accounts.proposal_account;
 
         Ok(())
     }
 
-    pub fn create_proposal(ctx: Context<Dataupdate>, _useraddress : Pubkey, _amounttransfer: u64) -> ProgramResult{
-        
+    pub fn create_proposal(
+        ctx: Context<Dataupdate>,
+        _useraddress: Pubkey,
+        _amounttransfer: u64,
+    ) -> Result<()> {
         // Put the check if the signer has voting power or not
 
         let _proposal_account = &mut ctx.accounts.proposal_account;
-        let now_ts = (Clock::get().unwrap().unix_timestamp as u64)+86400;
+        let now_ts = (Clock::get().unwrap().unix_timestamp as u64) + 86400;
         _proposal_account.user_addresses.push(_useraddress);
         _proposal_account.amount_transfer.push(_amounttransfer);
         _proposal_account.expiry_time.push(now_ts);
@@ -32,64 +37,64 @@ pub mod lazycon {
         Ok(())
     }
 
-    pub fn votes_proposal(ctx: Context<Voteupdate>, _index: u64, _expiry_time: u64, _user_addresses: Pubkey, _amount_transfer: u64, _votes: u64) -> ProgramResult{
-
+    pub fn votes_proposal(
+        ctx: Context<Voteupdate>,
+        _index: u64,
+        _expiry_time: u64,
+        _user_addresses: Pubkey,
+        _amount_transfer: u64,
+    ) -> Result<()> {
         // we will remove _votes param and fetch it from PDA
 
         let _proposal_account = &mut ctx.accounts.proposal_account;
         require!(
             _proposal_account.user_addresses[_index as usize]==_user_addresses &&
             // _proposal_account.expiry_time[_index as usize]==_expiry_time &&
-            _proposal_account.amount_transfer[_index as usize]==_amount_transfer
-            ,CustomError::WrongInput);
-        
+            _proposal_account.amount_transfer[_index as usize]==_amount_transfer,
+            CustomError::WrongInput
+        );
         require!(
             !_proposal_account.keys_voted[_index as usize].contains(&_user_addresses),
             CustomError::VotingAgain
         );
 
-        _proposal_account.votes_proposal[_index as usize] = _proposal_account.votes_proposal[_index as usize]+_votes;
-        
-        _proposal_account.keys_voted[_index as usize].push(ctx.accounts.signer.to_account_info().key());
+        _proposal_account.votes_proposal[_index as usize] += ctx.accounts.user_account.voting_power;
 
+        _proposal_account.keys_voted[_index as usize]
+            .push(ctx.accounts.signer.to_account_info().key());
         Ok(())
     }
 
-
-    pub fn execute(ctx: Context<Execupdate>) -> ProgramResult{
-        
+    pub fn execute(ctx: Context<Execupdate>) -> Result<()> {
         // Put the check if the signer has voting power or not
 
         let _proposal_account = &mut ctx.accounts.proposal_account;
         let remacc = ctx.remaining_accounts.to_vec();
-        
-        
-        let now_ts = (Clock::get().unwrap().unix_timestamp as u64);
-        
+        let now_ts = Clock::get().unwrap().unix_timestamp as u64;
 
-        let mut adrvector = &_proposal_account.user_addresses;
-        let mut amtvector = &_proposal_account.amount_transfer;
-        let mut evector = &_proposal_account.expiry_time;
-        let mut votesvector = &_proposal_account.votes_proposal;
-        let mut totalvote = &_proposal_account.total_votes;
+        let adrvector = &_proposal_account.user_addresses;
+        let amtvector = &_proposal_account.amount_transfer;
+        let evector = &_proposal_account.expiry_time;
+        let votesvector = &_proposal_account.votes_proposal;
+        let totalvote = &_proposal_account.total_votes;
 
-
-            
-
-
-        let lengthV = adrvector.len();
+        let length_v = adrvector.len();
         let mut endelem = 0;
-        for elem in 0..lengthV {
-            if(now_ts<evector[elem]){
+        for elem in 0..length_v {
+            if now_ts < evector[elem] {
                 endelem = elem;
                 break;
             }
-            if((votesvector[elem]/totalvote) * 10<4){
-                **_proposal_account.to_account_info().try_borrow_mut_lamports()? -= amtvector[elem];
-                require!(remacc[elem].key()==adrvector[elem],CustomError::WrongInput);
+            if (votesvector[elem] / totalvote) * 10 < 4 {
+                **_proposal_account
+                    .to_account_info()
+                    .try_borrow_mut_lamports()? -= amtvector[elem];
+                require!(
+                    remacc[elem].key() == adrvector[elem],
+                    CustomError::WrongInput
+                );
                 **remacc[elem].try_borrow_mut_lamports()? += amtvector[elem];
             }
-
         }
 
         _proposal_account.user_addresses.drain(0..endelem);
@@ -98,16 +103,62 @@ pub mod lazycon {
         _proposal_account.votes_proposal.drain(0..endelem);
         _proposal_account.keys_voted.drain(0..endelem);
 
-        
-
-
         Ok(())
     }
 
+    pub fn init_user(ctx: Context<CreateUserAccount>, _name: String) -> Result<()> {
+        let user_info = &mut ctx.accounts.user_account;
+        if _name.as_bytes().len() > 200 {
+            panic!();
+        }
+        user_info.name = _name;
+        user_info.bump = *ctx.bumps.get("user_account").unwrap();
+        user_info.lock_time =  Clock::get().unwrap().unix_timestamp as u64;
+        Ok(())
+    }
+
+    pub fn lock_tokens(ctx: Context<LockTokens>, _lock_tokens: u64) -> Result<()> {
+        let transfer_instruction = anchor_spl::token::Transfer {
+            from: ctx.accounts.user.to_account_info(),
+            to: ctx.accounts.user_vault.to_account_info(),
+            authority: ctx.accounts.signer.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_instruction,
+        );
+
+        anchor_spl::token::transfer(cpi_ctx, _lock_tokens)?;
+        let user_info = &mut ctx.accounts.user_account;
+        user_info.voting_power = _lock_tokens;
+        Ok(())
+    }
+
+    pub fn unlock_tokens(ctx: Context<UnlockTokens>, _vault_bump: u8) -> Result<()> {
+        let user_info = &mut ctx.accounts.user_account;
+        let now = Clock::get().unwrap().unix_timestamp as u64;
+        require!(now >= user_info.lock_time + 864000, CustomError::LockPeriodNotEnded);  //864000s =  10 days min lock period
+        let transfer_instruction = anchor_spl::token::Transfer {
+            from: ctx.accounts.user_vault.to_account_info(),
+            to: ctx.accounts.user.to_account_info(),
+            authority: ctx.accounts.user_vault.to_account_info(),
+        };
+        let bump_vector = _vault_bump.to_le_bytes();
+        let inner = vec![b"user-vault".as_ref(), ctx.accounts.signer.key.as_ref(), bump_vector.as_ref()];
+        let outer = vec![inner.as_slice()];
+        let cpi_ctx = CpiContext::new_with_signer(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_instruction,
+            outer.as_slice(),
+        );
+        anchor_spl::token::transfer(cpi_ctx, user_info.voting_power)?;
+        user_info.voting_power = 0;
+        Ok(())
+    }
 }
 
 // An enum for custom error codes
-#[error]
+#[error_code]
 pub enum CustomError {
     WrongInput,
     TimeError,
@@ -117,9 +168,9 @@ pub enum CustomError {
     ChallengeExpired,
     NoFullConsent,
     NotEnoughFunds,
-    VotingAgain
+    VotingAgain,
+    LockPeriodNotEnded
 }
-
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
@@ -127,7 +178,7 @@ pub struct Initialize<'info> {
     pub proposal_account: Account<'info, ProposalAccount>,
     #[account(mut)]
     pub user: Signer<'info>,
-    pub system_program: Program <'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -135,7 +186,7 @@ pub struct Dataupdate<'info> {
     #[account(mut)]
     pub proposal_account: Account<'info, ProposalAccount>,
     pub signer: Signer<'info>,
-    pub system_program: Program <'info, System>,
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -143,8 +194,7 @@ pub struct Execupdate<'info> {
     #[account(mut)]
     pub proposal_account: Account<'info, ProposalAccount>,
     pub signer: Signer<'info>,
-    pub system_program: Program <'info, System>,
-    
+    pub system_program: Program<'info, System>,
 }
 
 #[derive(Accounts)]
@@ -152,15 +202,89 @@ pub struct Voteupdate<'info> {
     #[account(mut)]
     pub proposal_account: Account<'info, ProposalAccount>,
     pub signer: Signer<'info>,
-    pub system_program: Program <'info, System>,
+    #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
+    pub user_account: Account<'info, UserAccount>,
 }
 
 #[account]
 pub struct ProposalAccount {
-    pub expiry_time : Vec<u64>,
+    pub expiry_time: Vec<u64>,
     pub user_addresses: Vec<Pubkey>,
-    pub amount_transfer : Vec<u64>,
-    pub votes_proposal : Vec<u64>,
-    pub keys_voted : Vec<Vec<Pubkey>>,
-    pub total_votes : u64
+    pub amount_transfer: Vec<u64>,
+    pub votes_proposal: Vec<u64>,
+    pub keys_voted: Vec<Vec<Pubkey>>,
+    pub total_votes: u64,
 }
+
+#[derive(Accounts)]
+pub struct CreateUserAccount<'info> {
+    #[account(mut)]
+    pub user: Signer<'info>,
+    // space: 8 discriminator + 8 voting_power + 4 name length + 200 name + 1 bump
+    #[account(
+        init,
+        payer = user,
+        space = 8 + 8 + 4 + 200 + 1 + 8, seeds = [b"user-account".as_ref(), user.key().as_ref()], bump
+    )]
+    pub user_account: Account<'info, UserAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct LockTokens<'info> {
+    #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub mint_of_token_being_sent: Account<'info, Mint>,
+    #[account(
+        init,
+        payer = signer,
+        seeds = [b"user-vault".as_ref(),signer.key().as_ref()],
+        bump,
+        token::mint = mint_of_token_being_sent,
+        token::authority = user_vault,
+    )]
+    pub user_vault: Account<'info, TokenAccount>,
+    #[account(mut, constraint = user.mint ==  mint_of_token_being_sent.key())]
+    pub user: Account<'info, TokenAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(vault_bump: u8)]
+pub struct UnlockTokens<'info> {
+    #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    pub mint_of_token_being_sent: Account<'info, Mint>,
+    #[account(
+        mut,
+        seeds = [b"user-vault".as_ref(),signer.key().as_ref()],
+        bump=vault_bump,
+    )]
+    pub user_vault: Account<'info, TokenAccount>,
+    #[account(mut, constraint = user.mint ==  mint_of_token_being_sent.key(), constraint = user.owner == signer.key())]
+    pub user: Account<'info, TokenAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[account]
+#[derive(Default)]
+pub struct UserAccount {
+    voting_power: u64,
+    name: String,
+    bump: u8,
+    lock_time: u64,
+}
+
+// #[account]
+// pub struct TotalVotes {
+//     votes: u64,
+// }

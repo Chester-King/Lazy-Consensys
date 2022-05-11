@@ -163,7 +163,8 @@ describe("lazycon", async () => {
       user: sender_token,
       systemProgram: anchor.web3.SystemProgram.programId,
       tokenProgram: spl.TOKEN_PROGRAM_ID,
-      userVault: userLockVault
+      userVault: userLockVault,
+      proposalAccount: proposalAccount.publicKey
     }).rpc()
     console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
     console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userLockVault));
@@ -285,13 +286,24 @@ describe("lazycon", async () => {
       user: sender_token,
       systemProgram: anchor.web3.SystemProgram.programId,
       tokenProgram: spl.TOKEN_PROGRAM_ID,
-      userVault: userLockVault
+      userVault: userLockVault,
+      proposalAccount: proposalAccount.publicKey
     }).rpc()
     console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
     console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userLockVault));
     // console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userPDA));
     let user = await program.account.userAccount.fetch(userPDA)
     console.log(user)
+
+
+    let account = await program.account.proposalAccount.fetch(
+      proposalAccount.publicKey
+    );
+
+    await console.log(account);
+
+
   })
+  
 });
 

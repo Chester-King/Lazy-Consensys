@@ -25,7 +25,7 @@ pub mod lazycon {
         // Put the check if the signer has voting power or not
 
         let _proposal_account = &mut ctx.accounts.proposal_account;
-        let now_ts = (Clock::get().unwrap().unix_timestamp as u64) + 86400;  // Time Fiddle
+        let now_ts = (Clock::get().unwrap().unix_timestamp as u64);  // Time Fiddle
         _proposal_account.user_addresses.push(_useraddress);
         _proposal_account.amount_transfer.push(_amounttransfer);
         _proposal_account.expiry_time.push(now_ts);
@@ -33,8 +33,6 @@ pub mod lazycon {
         _proposal_account.keys_voted.push(vec![]);
 
 
-        // for test
-        // _proposal_account.total_votes = 4;
 
         Ok(())
     }
@@ -82,12 +80,22 @@ pub mod lazycon {
 
         let length_v = adrvector.len();
         let mut endelem = 0;
+        let elem = 0;
         for elem in 0..length_v {
-            if now_ts < evector[elem] {
-                endelem = elem+1;
-                break;
-            }
+            // if now_ts < evector[elem] {
+
+                
+            //     endelem = elem+1;
+                
+            //     // _proposal_account.tkr.push(evector[elem]);
+
+                
+        
+
+            //     break;
+            // }
             if (votesvector[elem] / totalvote) * 10 < 4 {
+                
                 **_proposal_account
                     .to_account_info()
                     .try_borrow_mut_lamports()? -= amtvector[elem];
@@ -96,15 +104,34 @@ pub mod lazycon {
                     CustomError::WrongInput
                 );
                 **remacc[elem].try_borrow_mut_lamports()? += amtvector[elem];
+            
             }
+
+            
+            
         }
 
-        _proposal_account.user_addresses.drain(0..endelem);
-        _proposal_account.amount_transfer.drain(0..endelem);
-        _proposal_account.expiry_time.drain(0..endelem);
-        _proposal_account.votes_proposal.drain(0..endelem);
-        _proposal_account.keys_voted.drain(0..endelem);
+        // if elem == length_v-1 {
 
+            _proposal_account.user_addresses.drain(0..length_v);
+                _proposal_account.amount_transfer.drain(0..length_v);
+                _proposal_account.expiry_time.drain(0..length_v);
+                _proposal_account.votes_proposal.drain(0..length_v);
+                _proposal_account.keys_voted.drain(0..length_v);
+                _proposal_account.tkr.push(now_ts);
+
+        // }else{
+        //     _proposal_account.user_addresses.drain(0..endelem);
+        //         _proposal_account.amount_transfer.drain(0..endelem);
+        //         _proposal_account.expiry_time.drain(0..endelem);
+        //         _proposal_account.votes_proposal.drain(0..endelem);
+        //         _proposal_account.keys_voted.drain(0..endelem);
+        // }
+        
+
+
+
+       
 
         Ok(())
     }
@@ -247,7 +274,8 @@ pub struct ProposalAccount {
     pub amount_transfer: Vec<u64>,
     pub votes_proposal: Vec<u64>,
     pub keys_voted: Vec<Vec<Pubkey>>,
-    pub total_votes: u64
+    pub total_votes: u64,
+    pub tkr : Vec<u64>
 }
 
 #[derive(Accounts)]
@@ -345,8 +373,3 @@ pub struct UserAccount {
     bump: u8,
     lock_time: u64,
 }
-
-// #[account]
-// pub struct TotalVotes {
-//     votes: u64,
-// }

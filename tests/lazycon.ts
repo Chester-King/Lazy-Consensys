@@ -252,6 +252,10 @@ describe("lazycon", async () => {
   });
 
   it("Execute Proposal", async () => {
+    let v1 = await anchor
+      .getProvider()
+      .connection.getBalance(proposalAccount.publicKey);
+    await console.log(v1);
     const tx = await program.rpc.execute({
       accounts: {
         signer: provider.wallet.publicKey,
@@ -284,6 +288,11 @@ describe("lazycon", async () => {
 
     await console.log("AFTER EXECUTION ------- ")
     await console.log(account);
+
+    v1 = await anchor
+      .getProvider()
+      .connection.getBalance(proposalAccount.publicKey);
+    await console.log(v1);
   });
   it("UnLocks Tokens", async () => {
     await program.methods.unlockTokens(vault_bump).accounts({
@@ -307,6 +316,8 @@ describe("lazycon", async () => {
     );
 
     await console.log(account);
+
+    
 
 
   })

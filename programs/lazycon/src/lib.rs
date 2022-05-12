@@ -32,6 +32,7 @@ pub mod lazycon {
         _proposal_account.votes_proposal.push(0);
         _proposal_account.keys_voted.push(vec![]);
 
+
         // for test
         // _proposal_account.total_votes = 4;
 
@@ -83,7 +84,7 @@ pub mod lazycon {
         let mut endelem = 0;
         for elem in 0..length_v {
             if now_ts < evector[elem] {
-                endelem = elem;
+                endelem = elem+1;
                 break;
             }
             if (votesvector[elem] / totalvote) * 10 < 4 {
@@ -103,6 +104,7 @@ pub mod lazycon {
         _proposal_account.expiry_time.drain(0..endelem);
         _proposal_account.votes_proposal.drain(0..endelem);
         _proposal_account.keys_voted.drain(0..endelem);
+
 
         Ok(())
     }
@@ -245,7 +247,7 @@ pub struct ProposalAccount {
     pub amount_transfer: Vec<u64>,
     pub votes_proposal: Vec<u64>,
     pub keys_voted: Vec<Vec<Pubkey>>,
-    pub total_votes: u64,
+    pub total_votes: u64
 }
 
 #[derive(Accounts)]

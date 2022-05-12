@@ -282,6 +282,7 @@ describe("lazycon", async () => {
       proposalAccount.publicKey
     );
 
+    await console.log("AFTER EXECUTION ------- ")
     await console.log(account);
   });
   it("UnLocks Tokens", async () => {

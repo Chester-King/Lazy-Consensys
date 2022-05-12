@@ -25,7 +25,7 @@ pub mod lazycon {
         // Put the check if the signer has voting power or not
 
         let _proposal_account = &mut ctx.accounts.proposal_account;
-        let now_ts = (Clock::get().unwrap().unix_timestamp as u64) + 86400;
+        let now_ts = (Clock::get().unwrap().unix_timestamp as u64) + 86400;  // Time Fiddle
         _proposal_account.user_addresses.push(_useraddress);
         _proposal_account.amount_transfer.push(_amounttransfer);
         _proposal_account.expiry_time.push(now_ts);
@@ -138,10 +138,35 @@ pub mod lazycon {
         Ok(())
     }
 
+    pub fn lock_tokens_again(ctx: Context<LockTokensAgain>, _vault_bump: u8, _locked_tokens: u64) -> Result<()> {
+        let transfer_instruction = anchor_spl::token::Transfer {
+            from: ctx.accounts.user.to_account_info(),
+            to: ctx.accounts.user_vault.to_account_info(),
+            authority: ctx.accounts.signer.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            transfer_instruction,
+        );
+        let _proposal_account = &mut ctx.accounts.proposal_account;
+        let user_info = &mut ctx.accounts.user_account;
+    
+        require!(
+            user_info.lock_time == 0,
+            CustomError::LockPeriodNotEnded
+        );
+
+        anchor_spl::token::transfer(cpi_ctx, _locked_tokens)?;
+        user_info.voting_power = _locked_tokens;
+        user_info.lock_time =  Clock::get().unwrap().unix_timestamp as u64;
+        _proposal_account.total_votes = _proposal_account.total_votes + _locked_tokens;
+        Ok(())
+    }
+
     pub fn unlock_tokens(ctx: Context<UnlockTokens>, _vault_bump: u8) -> Result<()> {
         let user_info = &mut ctx.accounts.user_account;
         let now = Clock::get().unwrap().unix_timestamp as u64;
-        require!(now >= user_info.lock_time + 86400 , CustomError::LockPeriodNotEnded);  //864000s =  10 days min lock period
+        require!(now >= user_info.lock_time , CustomError::LockPeriodNotEnded);  // Time Fiddle 864000s =  10 days min lock period
         let transfer_instruction = anchor_spl::token::Transfer {
             from: ctx.accounts.user_vault.to_account_info(),
             to: ctx.accounts.user.to_account_info(),
@@ -267,6 +292,29 @@ pub struct LockTokens<'info> {
 #[derive(Accounts)]
 #[instruction(vault_bump: u8)]
 pub struct UnlockTokens<'info> {
+    #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
+    pub user_account: Account<'info, UserAccount>,
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    #[account(mut)]
+    pub proposal_account: Account<'info, ProposalAccount>,
+    pub mint_of_token_being_sent: Account<'info, Mint>,
+    #[account(
+        mut,
+        seeds = [b"user-vault".as_ref(),signer.key().as_ref()],
+        bump=vault_bump,
+    )]
+    pub user_vault: Account<'info, TokenAccount>,
+    #[account(mut, constraint = user.mint ==  mint_of_token_being_sent.key(), constraint = user.owner == signer.key())]
+    pub user: Account<'info, TokenAccount>,
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub rent: Sysvar<'info, Rent>,
+}
+
+#[derive(Accounts)]
+#[instruction(vault_bump: u8)]
+pub struct LockTokensAgain<'info> {
     #[account(mut, seeds = [b"user-account".as_ref(), signer.key().as_ref()], bump = user_account.bump)]
     pub user_account: Account<'info, UserAccount>,
     #[account(mut)]

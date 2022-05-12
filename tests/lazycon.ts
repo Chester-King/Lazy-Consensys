@@ -138,7 +138,8 @@ describe("lazycon", async () => {
       systemProgram: anchor.web3.SystemProgram.programId,
     }).rpc();
     let user = await program.account.userAccount.fetch(userPDA)
-    console.log(user)
+    console.log("PDA - Account Address",userPDA.toBase58())
+    console.log("PDA - Account",user)
   });
 
   it("Is initialized!", async () => {
@@ -172,6 +173,10 @@ describe("lazycon", async () => {
     let user = await program.account.userAccount.fetch(userPDA)
     console.log(user)
   })
+
+  
+  
+
   it("Create Proposal", async () => {
     // Add your test here
     const tx = await program.rpc.createProposal(
@@ -304,6 +309,33 @@ describe("lazycon", async () => {
 
 
   })
+
+
+  it("Locks Tokens Again", async () => {
+    await program.methods.lockTokensAgain(vault_bump, new anchor.BN(150000)).accounts({
+      mintOfTokenBeingSent: mint.publicKey,
+      userAccount: userPDA,
+      user: sender_token,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: spl.TOKEN_PROGRAM_ID,
+      userVault: userLockVault,
+      proposalAccount: proposalAccount.publicKey
+    }).rpc()
+    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
+    console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userLockVault));
+    // console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userPDA));
+    let user = await program.account.userAccount.fetch(userPDA)
+    console.log(user)
+
+    let account = await program.account.proposalAccount.fetch(
+      proposalAccount.publicKey
+    );
+
+    await console.log(account);
+
+
+  })
+
   
 });
 

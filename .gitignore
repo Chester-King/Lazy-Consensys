@@ -5,3 +5,7 @@ target
 **/*.rs.bk
 node_modules
 test-ledger
+app/node_modules
+app/.parcel-cache
+app/dist
+app/docs

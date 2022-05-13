@@ -11,8 +11,9 @@ declare_id!("6RUR6rTsMgSEpXqH25xXj3Qzdfd6MGRDe3P8hT949SsU");
 #[program]
 pub mod lazycon {
     use super::*;
-    pub fn initialize(ctx: Context<Initialize>) -> Result<()> {
+    pub fn initialize(ctx: Context<Initialize>, _mint_key: Pubkey) -> Result<()> {
         let _proposal_account = &mut ctx.accounts.proposal_account;
+        _proposal_account.mint_key = _mint_key;
 
         Ok(())
     }
@@ -118,7 +119,6 @@ pub mod lazycon {
                 _proposal_account.expiry_time.drain(0..length_v);
                 _proposal_account.votes_proposal.drain(0..length_v);
                 _proposal_account.keys_voted.drain(0..length_v);
-                _proposal_account.tkr.push(now_ts);
 
         // }else{
         //     _proposal_account.user_addresses.drain(0..endelem);
@@ -148,6 +148,10 @@ pub mod lazycon {
     }
 
     pub fn lock_tokens(ctx: Context<LockTokens>, _lock_tokens: u64) -> Result<()> {
+        
+        let _proposal_account = &mut ctx.accounts.proposal_account;
+        require!(ctx.accounts.mint_of_token_being_sent.to_account_info().key() == _proposal_account.mint_key,CustomError::WrongInput);
+
         let transfer_instruction = anchor_spl::token::Transfer {
             from: ctx.accounts.user.to_account_info(),
             to: ctx.accounts.user_vault.to_account_info(),
@@ -157,17 +161,20 @@ pub mod lazycon {
             ctx.accounts.token_program.to_account_info(),
             transfer_instruction,
         );
-        let _proposal_account = &mut ctx.accounts.proposal_account;
 
         anchor_spl::token::transfer(cpi_ctx, _lock_tokens)?;
         let user_info = &mut ctx.accounts.user_account;
         user_info.voting_power = _lock_tokens;
         user_info.lock_time =  Clock::get().unwrap().unix_timestamp as u64;
         _proposal_account.total_votes = _proposal_account.total_votes + _lock_tokens;
+
+
         Ok(())
     }
 
     pub fn lock_tokens_again(ctx: Context<LockTokensAgain>, _vault_bump: u8, _locked_tokens: u64) -> Result<()> {
+        let _proposal_account = &mut ctx.accounts.proposal_account;
+        require!(ctx.accounts.mint_of_token_being_sent.to_account_info().key() == _proposal_account.mint_key,CustomError::WrongInput);
         let transfer_instruction = anchor_spl::token::Transfer {
             from: ctx.accounts.user.to_account_info(),
             to: ctx.accounts.user_vault.to_account_info(),
@@ -177,7 +184,6 @@ pub mod lazycon {
             ctx.accounts.token_program.to_account_info(),
             transfer_instruction,
         );
-        let _proposal_account = &mut ctx.accounts.proposal_account;
         let user_info = &mut ctx.accounts.user_account;
     
         require!(
@@ -275,7 +281,7 @@ pub struct ProposalAccount {
     pub votes_proposal: Vec<u64>,
     pub keys_voted: Vec<Vec<Pubkey>>,
     pub total_votes: u64,
-    pub tkr : Vec<u64>
+    pub mint_key : Pubkey
 }
 
 #[derive(Accounts)]

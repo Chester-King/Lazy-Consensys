@@ -144,7 +144,7 @@ describe("lazycon", async () => {
 
   it("Is initialized!", async () => {
     // Add your test here.
-    await program.methods.initialize().accounts({
+    await program.methods.initialize(mint.publicKey).accounts({
       user: provider.wallet.publicKey,
       proposalAccount: proposalAccount.publicKey,
       systemProgram: anchor.web3.SystemProgram.programId,

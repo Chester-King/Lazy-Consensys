@@ -169,6 +169,15 @@ describe("lazycon", async () => {
     }).rpc()
     console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(sender_token));
     console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userLockVault));
+    // console.log("init:",await program.provider.connection.getAccountInfo(userLockVault))
+    // var [userLockVault2, vault_bump] = await PublicKey.findProgramAddress(
+    //   [
+    //     anchor.utils.bytes.utf8.encode("user-vault2"),
+    //     provider.wallet.publicKey.toBuffer(),
+    //   ],
+    //   program.programId
+    // );
+    // console.log("ninit:",await program.provider.connection.getAccountInfo(userLockVault2))
     // console.log("token balance: ", await program.provider.connection.getTokenAccountBalance(userPDA));
     let user = await program.account.userAccount.fetch(userPDA)
     console.log(user)
@@ -179,18 +188,24 @@ describe("lazycon", async () => {
 
   it("Create Proposal", async () => {
     // Add your test here
-    const tx = await program.rpc.createProposal(
-      provider.wallet.publicKey,
-      new anchor.BN(200),
-      {
-        accounts: {
-          signer: provider.wallet.publicKey,
-          proposalAccount: proposalAccount.publicKey,
-          systemProgram: anchor.web3.SystemProgram.programId,
-        },
-        signers: [],
-      }
-    );
+    await program.methods.createProposal(provider.wallet.publicKey,
+      new anchor.BN(200)).accounts({
+        signer: provider.wallet.publicKey,
+        proposalAccount: proposalAccount.publicKey,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      }).rpc()
+    // const tx = await program.rpc.createProposal(
+    //   provider.wallet.publicKey,
+    //   new anchor.BN(200),
+    //   {
+    //     accounts: {
+    //       signer: provider.wallet.publicKey,
+    //       proposalAccount: proposalAccount.publicKey,
+    //       systemProgram: anchor.web3.SystemProgram.programId,
+    //     },
+    //     signers: [],
+    //   }
+    // );
     // await console.log("Your transaction signature", tx);
     let account = await program.account.proposalAccount.fetch(
       proposalAccount.publicKey

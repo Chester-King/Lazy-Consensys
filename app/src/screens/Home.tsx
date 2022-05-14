@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ikbal from './ikbal.png';
 import {
   Button,
   Heading,
@@ -19,7 +20,7 @@ import {
 } from '@chakra-ui/react';
 import { useAnchorWallet, useWallet, useConnection } from '@solana/wallet-adapter-react';
 import * as anchor from '@project-serum/anchor';
-import { Connection, PublicKey } from '@solana/web3.js';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Link } from 'react-router-dom';
 import { Lazycon } from '../../../target/types/lazycon';
 import * as spl from '@solana/spl-token';
@@ -27,9 +28,16 @@ import { idl } from '../../idl';
 import { Program, AnchorProvider, web3, Wallet, Idl, BN } from '@project-serum/anchor';
 import { config } from '../consts';
 const PROGRAM_ID = new PublicKey(config.PROGRAM_ID);
+const MINT_ACCOUNT = new PublicKey(config.MINT_ACCOUNT);
+const PROPOSAL_ACCOUNT = new PublicKey(config.PROPOSAL_ACCOUNT);
 const { SystemProgram, Keypair } = web3;
 
 export const Home = () => {
+  const [submitting, setSubmitting] = useState(false);
+  const [userInfo, setUserInfo] = useState<{ uservault: PublicKey | null; vault_bump: number | null; vault_info: any }>(
+    { uservault: null, vault_bump: null, vault_info: null }
+  );
+  const [change,setChange] = useState(false);
   const [modalType, setModalType] = useState('Name');
   const [modalValue, setModalValue] = useState('');
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -89,32 +97,73 @@ export const Home = () => {
   const getUserInfo = async () => {
     try {
       let user = await anchorProgram.account.userAccount.fetch(userPDA);
-      console.log(user);
       setUser(user);
     } catch {
-      console.log('Not signedup');
       setModalType('Name');
     }
+  };
+
+  const getuserVault = async () => {
+    var [userLockVault, vault_bump] = await PublicKey.findProgramAddress(
+      [anchor.utils.bytes.utf8.encode('user-vault'), (publicKey as PublicKey).toBuffer()],
+      PROGRAM_ID
+    );
+    let uservaultinfo = await connection.getAccountInfo(userLockVault);
+    setUserInfo({ uservault: userLockVault, vault_bump: vault_bump, vault_info: uservaultinfo });
   };
 
   const handleTokenModal = () => {
     setModalType('Number Of Tokens');
     onOpen();
   };
+  const unlockTokens = async() =>{
+    var sender_token =  await spl.getAssociatedTokenAddress(MINT_ACCOUNT, publicKey as PublicKey, false, spl.TOKEN_PROGRAM_ID, spl.ASSOCIATED_TOKEN_PROGRAM_ID)
+    await anchorProgram.methods.unlockTokens(userInfo.vault_bump).accounts({
+      mintOfTokenBeingSent: MINT_ACCOUNT,
+      userAccount: userPDA,
+      user: sender_token,
+      systemProgram: anchor.web3.SystemProgram.programId,
+      tokenProgram: spl.TOKEN_PROGRAM_ID,
+      userVault: userInfo.uservault,
+      proposalAccount: PROPOSAL_ACCOUNT
+    }).rpc()
+    setChange(!change);
+  }
   const handleModalSubmit = async () => {
     try {
-      if(modalType=="Name"){
+      if (modalType == 'Name') {
         await anchorProgram.methods
-        .initUser(modalValue)
-        .accounts({
-          user: publicKey,
-          userAccount: userPDA,
-          tokenProgram: spl.TOKEN_PROGRAM_ID,
-          systemProgram: anchor.web3.SystemProgram.programId,
-        })
-        .rpc();
-      }else{
-        
+          .initUser(modalValue)
+          .accounts({
+            user: publicKey,
+            userAccount: userPDA,
+            tokenProgram: spl.TOKEN_PROGRAM_ID,
+            systemProgram: anchor.web3.SystemProgram.programId,
+          })
+          .rpc();
+      } else if(modalType == 'Number Of Tokens'){
+        let sender_token =  await spl.getAssociatedTokenAddress(MINT_ACCOUNT, publicKey as PublicKey, false, spl.TOKEN_PROGRAM_ID, spl.ASSOCIATED_TOKEN_PROGRAM_ID)
+        if(!userInfo.vault_info){
+          await anchorProgram.methods.lockTokens(new anchor.BN((parseInt(modalValue) as number)*LAMPORTS_PER_SOL)).accounts({
+            mintOfTokenBeingSent: MINT_ACCOUNT,
+            userAccount: userPDA,
+            user: sender_token,
+            systemProgram: anchor.web3.SystemProgram.programId,
+            tokenProgram: spl.TOKEN_PROGRAM_ID,
+            userVault: userInfo.uservault,
+            proposalAccount: PROPOSAL_ACCOUNT
+          }).rpc()
+        } else{
+          await anchorProgram.methods.lockTokensAgain(userInfo.vault_bump,new anchor.BN((parseInt(modalValue) as number)*LAMPORTS_PER_SOL)).accounts({
+            mintOfTokenBeingSent: MINT_ACCOUNT,
+            userAccount: userPDA,
+            user: sender_token,
+            systemProgram: anchor.web3.SystemProgram.programId,
+            tokenProgram: spl.TOKEN_PROGRAM_ID,
+            userVault: userInfo.uservault,
+            proposalAccount: PROPOSAL_ACCOUNT
+          }).rpc()
+        }
       }
     } catch (e) {
       console.log(e);
@@ -123,7 +172,6 @@ export const Home = () => {
   };
 
   useEffect(() => {
-    console.log(connection.rpcEndpoint);
     getProvider();
   }, [wallet, publicKey]);
 
@@ -136,20 +184,16 @@ export const Home = () => {
   }, [provider]);
 
   useEffect(() => {
-    console.log(anchorProgram);
-  }, [anchorProgram]);
-
-  useEffect(() => {
-    console.log(provider);
-  }, [provider]);
+    getuserVault();
+  }, [publicKey]);
 
   useEffect(() => {
     getUserInfo();
-  }, [userPDA, isOpen]);
+  }, [userPDA, isOpen, publicKey, change]);
 
   return (
     <Box p={10}>
-      <HStack width="full" paddingBottom="40vh">
+      <HStack width="full">
         <VStack width="full" alignItems="start" justify="flex-start" spacing={0}>
           <Heading fontSize={50} fontWeight="extrabold" pb={50}>
             Your Account
@@ -159,7 +203,7 @@ export const Home = () => {
               <Text fontSize="2xl">
                 Name - {user.name}
                 <br />
-                Locked Tokens - {user.votingPower.toNumber()}
+                Locked Tokens - {user.votingPower.toNumber()/LAMPORTS_PER_SOL}
                 <br />
                 Locked Time - {user.lockTime.toNumber()}
               </Text>
@@ -173,12 +217,12 @@ export const Home = () => {
           </VStack>
           <HStack>
             {user ? (
-              user.votingPower.toNumber != 0 ? (
+              user.votingPower.toNumber() == 0 ? (
                 <Button size="lg" variant="solid" onClick={handleTokenModal}>
                   Lock Tokens
                 </Button>
               ) : (
-                <Button size="lg" variant="solid">
+                <Button size="lg" variant="solid" onClick={unlockTokens}>
                   Unlock Tokens
                 </Button>
               )
@@ -189,6 +233,7 @@ export const Home = () => {
             )}
           </HStack>
         </VStack>
+        <Image src={ikbal} />
       </HStack>
       <Modal isOpen={isOpen} onClose={onClose}>
         <ModalOverlay />

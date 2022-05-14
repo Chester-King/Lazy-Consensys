@@ -85,7 +85,9 @@ export const App = () => {
                             <Navbar/>
                             <Routes>
                                 <Route path="/" element={<Home />}/>
+                                <Route path="/new" element={<NewForm />}/>
                             </Routes>
+
                         </Box>
                     </WalletModalProvider>
                 </WalletProvider>

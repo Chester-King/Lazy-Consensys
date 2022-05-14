@@ -5,6 +5,7 @@ use anchor_spl::{
 };
 use std::vec::Vec;
 
+//declare_id!("7afzN2XcHbV26J9MfaqLgP4VJaFNmxoZnEDtGAhVFYfX");
 declare_id!("12UTVpY9q9mgiSJ3uDL1f44Ry5kzmEWsbT8EnfqqShrP");
 // declare_id!("Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS");
 

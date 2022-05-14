@@ -1,203 +1,156 @@
-import React, { useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
+import marni from './marni.png';
+import hands from './hands.png';
 import {
   Button,
   Heading,
   HStack,
-  Text,
   Image,
-  Textarea,
   VStack,
-  useToast,
-  Link as NativeLink,
-} from '@chakra-ui/react';
-import { FormControl, FormLabel, Input } from '@chakra-ui/react';
-import {
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalBody,
+  Box,
+  Text,
   useDisclosure,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Input,
+  FormControl,
+  FormLabel,
+  Textarea,
 } from '@chakra-ui/react';
+import { useAnchorWallet, useWallet, useConnection } from '@solana/wallet-adapter-react';
+import * as anchor from '@project-serum/anchor';
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Link } from 'react-router-dom';
-import marni from './marni.png';
-import hands from './hands.png';
-
-import { WalletNotConnectedError } from '@solana/wallet-adapter-base';
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import {
-  TransactionInstruction,
-  Transaction,
-  PublicKey,
-  SystemProgram,
-} from '@solana/web3.js';
-
-import { useState } from 'react';
+import { Lazycon } from '../../../target/types/lazycon';
+import * as spl from '@solana/spl-token';
+import { idl } from '../../idl';
+import { Program, AnchorProvider, web3, Wallet, Idl, BN } from '@project-serum/anchor';
+import { config } from '../consts';
 import { FaExclamationCircle } from 'react-icons/fa';
+const PROGRAM_ID = new PublicKey(config.PROGRAM_ID);
+const MINT_ACCOUNT = new PublicKey(config.MINT_ACCOUNT);
+const PROPOSAL_ACCOUNT = new PublicKey(config.PROPOSAL_ACCOUNT);
+const { SystemProgram, Keypair } = web3;
 
 export const NewForm = () => {
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const { connection } = useConnection();
-  const { publicKey, sendTransaction } = useWallet();
-
-  const [description, setDescription] = useState('');
-  const [newNftAddr, setNewNftAddr] = useState(null);
+  const [userInfo, setUserInfo] = useState<{ uservault: PublicKey | null; vault_bump: number | null; vault_info: any }>(
+    { uservault: null, vault_bump: null, vault_info: null }
+  );
   const [submitting, setSubmitting] = useState(false);
+  const { isOpen, onOpen, onClose } = useDisclosure();
+  const { publicKey, wallet, signTransaction, signAllTransactions } = useWallet();
+  const [anchorProgram, setAnchorProgram] = useState<any>(null);
+  const [provider, setProvider] = useState<any>();
+  const [userPDA, setUserPDA] = useState<PublicKey>();
+  const [user, setUser] = useState<any>(null);
+  const { connection } = useConnection();
+  const [amount, setAmount] = useState('');
+  const [reciever, setReciever] = useState('');
+  const signerWallet = {
+    publicKey: publicKey,
+    signTransaction: signTransaction,
+    signAllTransactions: signAllTransactions,
+  };
+  const getProvider = () => {
+    console.log('Getting provider');
+    if (!wallet || !publicKey || !signTransaction || !signAllTransactions) {
+      return;
+    }
 
-  const toast = useToast();
+    const signerWallet = {
+      publicKey: publicKey,
+      signTransaction: signTransaction,
+      signAllTransactions: signAllTransactions,
+    };
 
-  const onClick = useCallback(async () => {
-    if (!publicKey) throw new WalletNotConnectedError();
+    const provider = new anchor.AnchorProvider(connection, signerWallet, {
+      commitment: 'processed',
+    });
+
+    console.log('provider', provider);
+
+    setProvider(provider);
+  };
+
+  const loadAnchor = async () => {
+    if (provider) {
+      const myProgram = new anchor.Program(idl, PROGRAM_ID, provider);
+      console.log(myProgram);
+      setAnchorProgram(myProgram);
+    }
+  };
+
+  const createProposal = async () => {
     setSubmitting(true);
-    const hash = await sha256(description);
-    console.log(hash);
-
-    const newAccountPubkey = await PublicKey.createWithSeed(
-      publicKey,
-      hash.substr(0, 10),
-      program_id
-    );
-
-    const lamports = await connection.getMinimumBalanceForRentExemption(
-      IntellectualProperty_Size
-    );
-
-    const instruction = SystemProgram.createAccountWithSeed({
-      fromPubkey: publicKey,
-      basePubkey: publicKey,
-      seed: hash.substr(0, 10),
-      newAccountPubkey: newAccountPubkey,
-      lamports: lamports,
-      space: IntellectualProperty_Size,
-      programId: program_id,
-    });
-
-    const transaction = new Transaction().add(instruction);
-    try {
-      const signature = await sendTransaction(transaction, connection);
-      console.log('created nft account');
-      await connection.confirmTransaction(signature, 'processed');
-    } catch (e) {
-      toast({
-        title: (
-          <Text>
-            Same idea made by you already exists. Visit{' '}
-            <NativeLink href={`/#/nft/${newAccountPubkey.toBase58()}`}>
-              here
-            </NativeLink>{' '}
-            to see your existing NFT.
-          </Text>
-        ),
-        status: 'error',
-        isClosable: true,
-      });
-      setSubmitting(false);
-      return;
-    }
-
-    const initAccount = new TransactionInstruction({
-      programId: program_id,
-      keys: [
-        { pubkey: newAccountPubkey, isSigner: false, isWritable: true },
-        {
-          pubkey: publicKey,
-          isSigner: true,
-          isWritable: false,
-        },
-      ],
-      data: Buffer.from(
-        Uint8Array.of(
-          0,
-          ...Array.from(
-            new TextEncoder().encode(hash + underscoreGenerator(500))
-          )
-        )
-      ),
-    });
-
-    const transaction2 = new Transaction().add(initAccount);
-    try {
-      const signature2 = await sendTransaction(transaction2, connection);
-      await connection.confirmTransaction(signature2, 'processed');
-    } catch (e) {
-      toast({
-        title: (
-          <Text>
-            Same idea made by you already exists. Visit{' '}
-            <NativeLink href={`/#/nft/${newAccountPubkey.toBase58()}`}>
-              here
-            </NativeLink>{' '}
-            to see your existing NFT.
-          </Text>
-        ),
-        status: 'error',
-        isClosable: true,
-      });
-      setSubmitting(false);
-      return;
-    }
-
-    setNewNftAddr(newAccountPubkey.toBase58());
-    console.log(newAccountPubkey.toBase58());
+    await anchorProgram.methods
+      .createProposal(new PublicKey(reciever), new anchor.BN(amount))
+      .accounts({
+        signer: publicKey,
+        proposalAccount: PROPOSAL_ACCOUNT,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
     onOpen();
     setSubmitting(false);
-  }, [publicKey, sendTransaction, connection, description, onOpen, toast]);
+    setAmount('');
+    setReciever('');
+  };
+  useEffect(() => {
+    getProvider();
+  }, [wallet, publicKey]);
+
+  useEffect(() => {
+    loadAnchor();
+  }, [provider]);
 
   return (
     <>
       <VStack alignItems="start" spacing={20}>
         <HStack width="full" height="full">
-          <VStack
-            width="full"
-            height="full"
-            spacing={10}
-            alignItems="start"
-            alignContent="start"
-          >
-            <Heading color="white">Create a new NFT</Heading>
-            <FormControl id="contents" isRequired>
-              <FormLabel color="white">
-                Enter IPR Text to store in your NFT
-              </FormLabel>
-              <Textarea
-                type="text"
-                placeholder="Write information to store in NFT"
-                value={description}
-                onChange={e => {
-                  setDescription(e.target.value);
+          <VStack width="full" height="full" spacing={10} alignItems="start" alignContent="start">
+            <Heading color="white">Create a new Proposal</Heading>
+            <FormControl id="contents" isRequired paddingBottom={10}>
+              <FormLabel color="white">Enter Public Key of Wallet</FormLabel>
+              <Input
+                placeholder="PublicKey"
+                onChange={(e) => {
+                  setReciever(e.target.value);
                 }}
-                height={200}
+                marginBottom={10}
+              />
+              <FormLabel color="white">Enter Amount To Be Transfered</FormLabel>
+              <Input
+                placeholder="Amount(in Tokens)"
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                }}
               />
             </FormControl>
             <HStack justify="space-between" width="full">
               <Button
                 bgColor="#FF5B37"
-                onClick={onClick}
-                isDisabled={!publicKey || description === '' || submitting}
+                onClick={createProposal}
+                isDisabled={!publicKey || !amount || !reciever || submitting}
                 isLoading={submitting}
               >
-                Mint NFT
+                Create Proposal
               </Button>
               <HStack>
-                {description === '' && (
-                  <HStack
-                    p={2}
-                    borderColor="#FF5B37"
-                    borderWidth={1}
-                    borderRadius={10}
-                  >
+                {(!reciever || !amount) && (
+                  <HStack p={2} borderColor="#FF5B37" borderWidth={1} borderRadius={10}>
                     <FaExclamationCircle color="#FF5B37" />
                     <Text fontSize="sm" color="#FF5B37">
-                      Empty description
+                      Empty Fields
                     </Text>
                   </HStack>
                 )}
                 {!publicKey && (
-                  <HStack
-                    p={2}
-                    borderColor="#FF5B37"
-                    borderWidth={1}
-                    borderRadius={10}
-                  >
+                  <HStack p={2} borderColor="#FF5B37" borderWidth={1} borderRadius={10}>
                     <FaExclamationCircle color="#FF5B37" />
                     <Text fontSize="sm" color="#FF5B37">
                       Wallet not connected
@@ -215,41 +168,8 @@ export const NewForm = () => {
         <ModalContent bgColor="white">
           <ModalBody>
             <VStack py={10} alignItems="start">
-              <Text color="black">
-                Your NFT Token was successfully created.
-              </Text>
-              <FormControl
-                id="wallet"
-                isRequired
-                isReadOnly={true}
-                borderColor="gray.700"
-                width="70%"
-              >
-                <Input type="email" value={newNftAddr} color="black" />
-              </FormControl>
-              <HStack width="70%" justify="space-between">
-                <Button
-                  colorScheme="orange"
-                  variant="outline"
-                  as={NativeLink}
-                  download={newNftAddr + '.json'}
-                  href={
-                    'data:text/json;charset=utf-8,' +
-                    encodeURIComponent(JSON.stringify({ description }))
-                  }
-                >
-                  Download Keyfile
-                </Button>
-                <Button
-                  variant="solid"
-                  colorScheme="orange"
-                  as={Link}
-                  to={`/nft/${newNftAddr}`}
-                  color="white"
-                >
-                  See NFT Page
-                </Button>
-              </HStack>
+              <Text color="black">Your Proposal was successfully created.</Text>
+              <HStack width="70%" justify="space-between"></HStack>
             </VStack>
             <Image src={hands} position="absolute" right={0} bottom={0} p={2} />
           </ModalBody>

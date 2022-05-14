@@ -31,9 +31,9 @@ export const Navbar = () => {
           </Link>
         </Box>
         <Box>
-          <Link to="/explore">
+          <Link to="/proposals">
             <Text fontWeight="semibold" color="white">
-              Explore
+              Proposals
             </Text>
           </Link>
         </Box>

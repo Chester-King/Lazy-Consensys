@@ -53,6 +53,8 @@ export const Proposals = () => {
   const { connection } = useConnection();
   const [amount, setAmount] = useState('');
   const [test, setTest] = useState();
+  const [reciever, setReciever] = useState<PublicKey>("");
+  const [submitting, setSubmitting] = useState(false);
   const signerWallet = {
     publicKey: publicKey,
     signTransaction: signTransaction,
@@ -103,7 +105,7 @@ export const Proposals = () => {
       for(let i = 0; i < propac.userAddresses.length; i++) {
           let dat = new Date(propac.expiryTime[i].toNumber() * 1000);
           let exp = [dat.getDate(), dat.getMonth(), dat.getFullYear(), dat.getHours(), dat.getMinutes(), dat.getSeconds()]
-          tab.push(<Tr><Td>{propac.userAddresses[i].toString()}</Td><Td>{propac.amountTransfer[i].toString()}</Td><Td>{exp[0]}/{exp[1]}/{exp[2]} {exp[3]}:{exp[4]}:{exp[5]}</Td><Td>{propac.keysVoted[i].length}</Td></Tr>)
+          tab.push(<Tr><Td>{propac.userAddresses[i].toString()}</Td><Td>{propac.amountTransfer[i].toString()}</Td><Td>{exp[0]}/{exp[1]}/{exp[2]} {exp[3]}:{exp[4]}:{exp[5]}</Td><Td>{propac.keysVoted[i].length}</Td><Td><Button bgColor="#FF5B37" onClick={voteProposal} isDisabled={!publicKey || !amount || !reciever || submitting} isLoading={submitting}>Vote</Button></Td><Td><Button bgColor="#FF5B37" onClick={execProposal} isDisabled={!publicKey || !amount || !reciever || submitting} isLoading={submitting}>Execute</Button></Td></Tr>)
       }
       
       setTest(tab)
@@ -111,6 +113,38 @@ export const Proposals = () => {
       console.log(err)
     }
     return "bald"
+  };
+
+  const voteProposal = async () => {
+    setSubmitting(true);
+    await anchorProgram.methods
+      .createProposal(new PublicKey(reciever), new anchor.BN(amount))
+      .accounts({
+        signer: publicKey,
+        proposalAccount: PROPOSAL_ACCOUNT,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+    //onOpen();
+    setSubmitting(false);
+    setAmount('');
+    setReciever('');
+  };
+
+  const execProposal = async () => {
+    setSubmitting(true);
+    await anchorProgram.methods
+      .createProposal(new PublicKey(reciever), new anchor.BN(amount))
+      .accounts({
+        signer: publicKey,
+        proposalAccount: PROPOSAL_ACCOUNT,
+        systemProgram: anchor.web3.SystemProgram.programId,
+      })
+      .rpc();
+    //onOpen();
+    setSubmitting(false);
+    setAmount('');
+    setReciever('');
   };
 
   useEffect(() => {
@@ -131,6 +165,8 @@ export const Proposals = () => {
         <Th>Amount</Th>
         <Th>Expiry Time</Th>
         <Th>Votes</Th>
+        <Th>Vote</Th>
+        <Th>EXecute</Th>
       </Tr>
     </Thead>
     <Tbody>

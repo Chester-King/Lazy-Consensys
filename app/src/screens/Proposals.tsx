@@ -9,6 +9,7 @@ import {
   Table,
   Thead,
   Tbody,
+  Text,
   Tfoot,
   Tr,
   Th,
@@ -31,8 +32,11 @@ const MINT_ACCOUNT = new PublicKey(config.MINT_ACCOUNT);
 const PROPOSAL_ACCOUNT = new PublicKey(config.PROPOSAL_ACCOUNT);
 
 export const Proposals = () => {
+  const [proposalAccount, setProposalAccount] = useState<any>();
   const [userPDA, setUserPDA] = useState<PublicKey>();
-  const [remmainingAccounts, setRemainingAccounts] = useState<Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }>>([]);
+  const [remmainingAccounts, setRemainingAccounts] = useState<
+    Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }>
+  >([]);
   const { publicKey, wallet, signTransaction, signAllTransactions } = useWallet();
   const [anchorProgram, setAnchorProgram] = useState<any>(null);
   const [provider, setProvider] = useState<any>();
@@ -99,8 +103,9 @@ export const Proposals = () => {
     try {
       let propac = await anchorProgram.account.proposalAccount.fetch(PROPOSAL_ACCOUNT);
       console.log(propac);
+      setProposalAccount(propac);
       let tab = [];
-      let remacc:Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
+      let remacc: Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
       propac.userAddresses.forEach((element: PublicKey) => {
         remacc.push({
           pubkey: element,
@@ -129,7 +134,6 @@ export const Proposals = () => {
           ></ProposalTab>
         );
       }
-
       setTest(tab);
     } catch (err) {
       console.log(err);
@@ -179,6 +183,7 @@ export const Proposals = () => {
         <HStack width="full" height="full">
           <VStack width="full" height="full" spacing={10} alignItems="start" alignContent="start">
             <Heading color="white">Proposals</Heading>
+            {proposalAccount ? <Text>Total Tokens Locked - { proposalAccount.totalVotes.toNumber()/LAMPORTS_PER_SOL}</Text> : <></>}
             <Button
               bgColor="#FF5B37"
               onClick={execProposal}

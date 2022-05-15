@@ -22,7 +22,6 @@ import { Routes, Route } from "react-router-dom";
 import { Navbar } from './screens/Navbar'
 import { NewForm } from "./screens/Form";
 import { Proposals } from "./screens/Proposals";
-import { NFTPage } from "./screens/NFTPage";
 import {Home} from './screens/Home'
 
 const theme = extendTheme({

@@ -50,7 +50,7 @@ export const Navbar = () => {
           backgroundColor="white"
           rightIcon={<FaGithub color="black" />}
           as={NativeLink}
-          href="https://github.com/"
+          href="https://github.com/Chester-King/Lazy-Consensys"
         >
           <Text fontWeight="semibold" color="black">
             GitHub

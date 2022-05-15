@@ -21,6 +21,7 @@ import { clusterApiUrl } from '@solana/web3.js';
 import { Routes, Route } from "react-router-dom";
 import { Navbar } from './screens/Navbar'
 import { NewForm } from "./screens/Form";
+import { Proposals } from "./screens/Proposals";
 import { NFTPage } from "./screens/NFTPage";
 import {Home} from './screens/Home'
 
@@ -86,6 +87,7 @@ export const App = () => {
                             <Routes>
                                 <Route path="/" element={<Home />}/>
                                 <Route path="/new" element={<NewForm />}/>
+                                <Route path="/proposals" element={<Proposals />}/>
                             </Routes>
 
                         </Box>

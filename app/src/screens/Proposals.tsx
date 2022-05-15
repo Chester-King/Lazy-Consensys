@@ -55,6 +55,7 @@ export const Proposals = () => {
   const [test, setTest] = useState();
   const [reciever, setReciever] = useState<PublicKey>("");
   const [submitting, setSubmitting] = useState(false);
+  const [userPDA, setUserPDA] = useState<PublicKey>();
   const signerWallet = {
     publicKey: publicKey,
     signTransaction: signTransaction,
@@ -97,6 +98,10 @@ export const Proposals = () => {
     loadAnchor();
   }, [provider]);
 
+  useEffect(() => {
+    loadPDA();
+  }, [wallet, publicKey]);
+
   const getPropInfo = async () => {
     try {
       let propac = await anchorProgram.account.proposalAccount.fetch(PROPOSAL_ACCOUNT);
@@ -105,9 +110,8 @@ export const Proposals = () => {
       for(let i = 0; i < propac.userAddresses.length; i++) {
           let dat = new Date(propac.expiryTime[i].toNumber() * 1000);
           let exp = [dat.getDate(), dat.getMonth(), dat.getFullYear(), dat.getHours(), dat.getMinutes(), dat.getSeconds()]
-          tab.push(<Tr><Td>{propac.userAddresses[i].toString()}</Td><Td>{propac.amountTransfer[i].toString()}</Td><Td>{exp[0]}/{exp[1]}/{exp[2]} {exp[3]}:{exp[4]}:{exp[5]}</Td><Td>{propac.keysVoted[i].length}</Td><Td><Button bgColor="#FF5B37" onClick={voteProposal} isDisabled={!publicKey || !amount || !reciever || submitting} isLoading={submitting}>Vote</Button></Td><Td><Button bgColor="#FF5B37" onClick={execProposal} isDisabled={!publicKey || !amount || !reciever || submitting} isLoading={submitting}>Execute</Button></Td></Tr>)
+          tab.push(<Tr><Td>{propac.userAddresses[i].toString()}</Td><Td>{propac.amountTransfer[i].toString()}</Td><Td>{exp[0]}/{exp[1]}/{exp[2]} {exp[3]}:{exp[4]}:{exp[5]}</Td><Td>{propac.keysVoted[i].length}</Td><Td><Button bgColor="#FF5B37" onClick={voteProposal(i, propac.expiryTime[i].toNumber(), propac.amountTransfer[i].toNumber())} isDisabled={submitting} isLoading={submitting}>Vote</Button></Td><Td><Button bgColor="#FF5B37" onClick={execProposal} isDisabled={submitting} isLoading={submitting}>Execute</Button></Td></Tr>)
       }
-      
       setTest(tab)
     } catch(err) {
       console.log(err)
@@ -115,36 +119,62 @@ export const Proposals = () => {
     return "bald"
   };
 
-  const voteProposal = async () => {
+  const voteProposal = async (idx: number, time: number, amt: number) => {
     setSubmitting(true);
-    await anchorProgram.methods
-      .createProposal(new PublicKey(reciever), new anchor.BN(amount))
-      .accounts({
-        signer: publicKey,
-        proposalAccount: PROPOSAL_ACCOUNT,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
-    //onOpen();
+    await anchorProgram.rpc
+      .votesProposal(
+        new anchor.BN(idx),
+        new anchor.BN(time), // need to pass expiry time
+        userPDA,
+        new anchor.BN(amt),
+        {
+          accounts: {
+            signer: userPDA,
+            proposalAccount: PROPOSAL_ACCOUNT,
+            userAccount: userPDA,
+          },
+          signers: [],
+        })
     setSubmitting(false);
-    setAmount('');
-    setReciever('');
   };
 
   const execProposal = async () => {
     setSubmitting(true);
-    await anchorProgram.methods
-      .createProposal(new PublicKey(reciever), new anchor.BN(amount))
-      .accounts({
-        signer: publicKey,
-        proposalAccount: PROPOSAL_ACCOUNT,
-        systemProgram: anchor.web3.SystemProgram.programId,
+    await anchorProgram.rpc
+      .execute({
+        accounts: {
+          signer: userPDA,
+          proposalAccount: PROPOSAL_ACCOUNT,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        },
+        remainingAccounts: [
+          {
+            pubkey: userPDA,
+            isSigner: false,
+            isWritable: true,
+          },
+          {
+            pubkey: userPDA,
+            isSigner: false,
+            isWritable: true,
+          },
+          {
+            pubkey: userPDA,
+            isSigner: false,
+            isWritable: true,
+          },
+        ],
+        signers: [],
       })
-      .rpc();
-    //onOpen();
     setSubmitting(false);
-    setAmount('');
-    setReciever('');
+  };
+
+  const loadPDA = async () => {
+    const [PDA, _] = await PublicKey.findProgramAddress(
+      [anchor.utils.bytes.utf8.encode('user-account'), (publicKey as PublicKey).toBuffer()],
+      PROGRAM_ID
+    );
+    setUserPDA(PDA);
   };
 
   useEffect(() => {

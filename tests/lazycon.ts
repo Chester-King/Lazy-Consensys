@@ -37,7 +37,7 @@ describe("lazycon", async () => {
   );
   const proposalAccount = anchor.web3.Keypair.generate();
   let mint: anchor.web3.Keypair;
-  let sender_token:anchor.web3.PublicKey;
+  let sender_token: anchor.web3.PublicKey;
   let receiver;
   let receiver_token;
 
@@ -138,8 +138,8 @@ describe("lazycon", async () => {
       systemProgram: anchor.web3.SystemProgram.programId,
     }).rpc();
     let user = await program.account.userAccount.fetch(userPDA)
-    console.log("PDA - Account Address",userPDA.toBase58())
-    console.log("PDA - Account",user)
+    console.log("PDA - Account Address", userPDA.toBase58())
+    console.log("PDA - Account", user)
   });
 
   it("Is initialized!", async () => {
@@ -183,8 +183,8 @@ describe("lazycon", async () => {
     console.log(user)
   })
 
-  
-  
+
+
 
   it("Create Proposal", async () => {
     // Add your test here
@@ -242,20 +242,16 @@ describe("lazycon", async () => {
   });
 
   it("Vote Proposal", async () => {
-    const tx = await program.rpc.votesProposal(
+    const tx = await program.methods.votesProposal(
       new anchor.BN(0),
       new anchor.BN(0), // need to pass expiry time
       provider.wallet.publicKey,
       new anchor.BN(200),
-      {
-        accounts: {
-          signer: provider.wallet.publicKey,
-          proposalAccount: proposalAccount.publicKey,
-          userAccount: userPDA,
-        },
-        signers: [],
-      }
-    );
+    ).accounts({
+      signer: provider.wallet.publicKey,
+      proposalAccount: proposalAccount.publicKey,
+      userAccount: userPDA
+    }).rpc();
     // await console.log("Your transaction signature", tx);
     let account = await program.account.proposalAccount.fetch(
       proposalAccount.publicKey
@@ -332,7 +328,7 @@ describe("lazycon", async () => {
 
     await console.log(account);
 
-    
+
 
 
   })
@@ -363,6 +359,6 @@ describe("lazycon", async () => {
 
   })
 
-  
+
 });
 

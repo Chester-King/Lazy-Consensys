@@ -248,7 +248,6 @@ describe("lazycon", async () => {
       provider.wallet.publicKey,
       new anchor.BN(200),
     ).accounts({
-      signer: provider.wallet.publicKey,
       proposalAccount: proposalAccount.publicKey,
       userAccount: userPDA
     }).rpc();
@@ -267,31 +266,51 @@ describe("lazycon", async () => {
       .getProvider()
       .connection.getBalance(proposalAccount.publicKey);
     await console.log(v1);
-    const tx = await program.rpc.execute({
-      accounts: {
-        signer: provider.wallet.publicKey,
-        proposalAccount: proposalAccount.publicKey,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      },
-      remainingAccounts: [
-        {
-          pubkey: provider.wallet.publicKey,
-          isSigner: false,
-          isWritable: true,
-        },
-        {
-          pubkey: provider.wallet.publicKey,
-          isSigner: false,
-          isWritable: true,
-        },
-        {
-          pubkey: provider.wallet.publicKey,
-          isSigner: false,
-          isWritable: true,
-        },
-      ],
-      signers: [],
-    });
+    program.methods.execute().remainingAccounts([{
+      pubkey: provider.wallet.publicKey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: provider.wallet.publicKey,
+      isSigner: false,
+      isWritable: true,
+    },
+    {
+      pubkey: provider.wallet.publicKey,
+      isSigner: false,
+      isWritable: true,
+    }]).accounts({
+      signer: provider.wallet.publicKey,
+      proposalAccount: proposalAccount.publicKey,
+      systemProgram: anchor.web3.SystemProgram.programId,
+    }).rpc()
+
+    // const tx = await program.rpc.execute({
+    //   accounts: {
+    //     signer: provider.wallet.publicKey,
+    //     proposalAccount: proposalAccount.publicKey,
+    //     systemProgram: anchor.web3.SystemProgram.programId,
+    //   },
+    //   remainingAccounts: [
+    //     {
+    //       pubkey: provider.wallet.publicKey,
+    //       isSigner: false,
+    //       isWritable: true,
+    //     },
+    //     {
+    //       pubkey: provider.wallet.publicKey,
+    //       isSigner: false,
+    //       isWritable: true,
+    //     },
+    //     {
+    //       pubkey: provider.wallet.publicKey,
+    //       isSigner: false,
+    //       isWritable: true,
+    //     },
+    //   ],
+    //   signers: [],
+    // });
     // await console.log("Your transaction signature", tx);
     let account = await program.account.proposalAccount.fetch(
       proposalAccount.publicKey

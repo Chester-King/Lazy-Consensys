@@ -6,6 +6,20 @@ import {
   HStack,
   Image,
   VStack,
+  Box,
+  Text,
+  useDisclosure,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
+  Input,
+  FormControl,
+  FormLabel,
+  Textarea,
   Table,
   Thead,
   Tbody,
@@ -25,14 +39,19 @@ import * as spl from '@solana/spl-token';
 import { idl } from '../../idl';
 import { Program, AnchorProvider, web3, Wallet, Idl, BN } from '@project-serum/anchor';
 import { config } from '../consts';
-import { ProposalTab } from './ProposalTab';
 const PROGRAM_ID = new PublicKey(config.PROGRAM_ID);
 const MINT_ACCOUNT = new PublicKey(config.MINT_ACCOUNT);
 const PROPOSAL_ACCOUNT = new PublicKey(config.PROPOSAL_ACCOUNT);
+type AppProps = {
+  index: number;
+  userAddress: string;
+  amountTransfer: string;
+  expiryTime: number;
+  votes: string;
+};
 
-export const Proposals = () => {
+export const ProposalTab = (prop: AppProps) => {
   const [userPDA, setUserPDA] = useState<PublicKey>();
-  const [remmainingAccounts, setRemainingAccounts] = useState<Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }>>([]);
   const { publicKey, wallet, signTransaction, signAllTransactions } = useWallet();
   const [anchorProgram, setAnchorProgram] = useState<any>(null);
   const [provider, setProvider] = useState<any>();
@@ -95,115 +114,71 @@ export const Proposals = () => {
     loadPDA();
   }, [wallet, publicKey]);
 
-  const getPropInfo = async () => {
-    try {
-      let propac = await anchorProgram.account.proposalAccount.fetch(PROPOSAL_ACCOUNT);
-      console.log(propac);
-      let tab = [];
-      let remacc:Array<{ pubkey: PublicKey; isSigner: boolean; isWritable: boolean }> = [];
-      propac.userAddresses.forEach((element: PublicKey) => {
-        remacc.push({
-          pubkey: element,
-          isSigner: false,
-          isWritable: true,
-        });
-      });
-      setRemainingAccounts(remacc);
-      for (let i = 0; i < propac.userAddresses.length; i++) {
-        let dat = new Date(propac.expiryTime[i].toNumber());
-        let exp = [
-          dat.getDate(),
-          dat.getMonth(),
-          dat.getFullYear(),
-          dat.getHours(),
-          dat.getMinutes(),
-          dat.getSeconds(),
-        ];
-        tab.push(
-          <ProposalTab
-            index={i}
-            userAddress={propac.userAddresses[i].toString()}
-            amountTransfer={propac.amountTransfer[i].toString()}
-            expiryTime={propac.expiryTime[i].toNumber()}
-            votes={propac.keysVoted[i].length}
-          ></ProposalTab>
-        );
-      }
-
-      setTest(tab);
-    } catch (err) {
-      console.log(err);
-    }
-    return 'bald';
-  };
-
   const voteProposal = async () => {
+    console.log(prop.index, prop.expiryTime, prop.userAddress, prop.amountTransfer);
     setSubmitting(true);
     await anchorProgram.methods
-      .votesProposal(new anchor.BN(0), new anchor.BN(0), provider.wallet.publicKey, new anchor.BN(200))
+      .votesProposal(
+        new anchor.BN(prop.index),
+        new anchor.BN(prop.expiryTime as number),
+        new PublicKey(prop.userAddress),
+        new anchor.BN(prop.amountTransfer)
+      )
       .accounts({
-        signer: publicKey,
         proposalAccount: PROPOSAL_ACCOUNT,
         userAccount: userPDA,
       })
       .rpc();
     //onOpen();
     setSubmitting(false);
-    setAmount('');
-    setReciever('');
   };
 
   const execProposal = async () => {
+    let reciever = new PublicKey(prop.userAddress)
+    console.log(prop.userAddress)
     setSubmitting(true);
     anchorProgram.methods
       .execute()
-      .remainingAccounts(remmainingAccounts)
+      .remainingAccounts([
+        {
+          pubkey: reciever,
+          isSigner: false,
+          isWritable: true,
+        },
+        {
+          pubkey: reciever,
+          isSigner: false,
+          isWritable: true,
+        },
+        {
+          pubkey: reciever,
+          isSigner: false,
+          isWritable: true,
+        },
+      ])
       .accounts({
         signer: publicKey,
         proposalAccount: PROPOSAL_ACCOUNT,
         systemProgram: anchor.web3.SystemProgram.programId,
       })
       .rpc();
+    //onOpen();
     setSubmitting(false);
-    setAmount('');
-    setReciever('');
   };
-
-  useEffect(() => {
-    getPropInfo();
-  }, [publicKey, anchorProgram]);
 
   return (
     <>
-      <VStack alignItems="start" spacing={20}>
-        <HStack width="full" height="full">
-          <VStack width="full" height="full" spacing={10} alignItems="start" alignContent="start">
-            <Heading color="white">Proposals</Heading>
-            <Button
-              bgColor="#FF5B37"
-              onClick={execProposal}
-              isDisabled={!publicKey || submitting}
-              isLoading={submitting}
-            >
-              Execute
-            </Button>
-            <TableContainer>
-              <Table variant="simple">
-                <Thead>
-                  <Tr>
-                    <Th>Reciever Address</Th>
-                    <Th>Amount</Th>
-                    <Th>Expiry Time</Th>
-                    <Th>Votes</Th>
-                    <Th>Vote</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>{test}</Tbody>
-              </Table>
-            </TableContainer>
-          </VStack>
-        </HStack>
-      </VStack>
+      <Tr>
+        <Td>{prop.userAddress}</Td>
+        <Td>{prop.amountTransfer}</Td>
+        <Td>{prop.expiryTime}</Td>
+        <Td>{prop.votes}</Td>
+        <Td>
+          <Button bgColor="#FF5B37" onClick={voteProposal} isDisabled={!publicKey || submitting} isLoading={submitting}>
+            Vote
+          </Button>
+        </Td>
+      </Tr>
     </>
   );
 };

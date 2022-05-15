@@ -43,7 +43,7 @@ export const Proposals = () => {
   const { connection } = useConnection();
   const [amount, setAmount] = useState('');
   const [test, setTest] = useState<JSX.Element[]>();
-  const [reciever, setReciever] = useState('');
+
   const [submitting, setSubmitting] = useState(false);
   const signerWallet = {
     publicKey: publicKey,
@@ -141,36 +141,25 @@ export const Proposals = () => {
     return 'bald';
   };
 
-  const voteProposal = async () => {
-    setSubmitting(true);
-    await anchorProgram.methods
-      .votesProposal(new anchor.BN(0), new anchor.BN(0), provider.wallet.publicKey, new anchor.BN(200))
-      .accounts({
-        signer: publicKey,
-        proposalAccount: PROPOSAL_ACCOUNT,
-        userAccount: userPDA,
-      })
-      .rpc();
-    //onOpen();
-    setSubmitting(false);
-    setAmount('');
-    setReciever('');
-  };
-
   const execProposal = async () => {
     setSubmitting(true);
-    anchorProgram.methods
-      .execute()
-      .remainingAccounts(remmainingAccounts)
-      .accounts({
-        signer: publicKey,
-        proposalAccount: PROPOSAL_ACCOUNT,
-        systemProgram: anchor.web3.SystemProgram.programId,
-      })
-      .rpc();
-    setSubmitting(false);
-    setAmount('');
-    setReciever('');
+    try {
+      await anchorProgram.methods
+        .execute()
+        .remainingAccounts(remmainingAccounts)
+        .accounts({
+          signer: publicKey,
+          proposalAccount: PROPOSAL_ACCOUNT,
+          systemProgram: anchor.web3.SystemProgram.programId,
+        })
+        .rpc();
+      setSubmitting(false);
+      window.location.reload();
+    } catch (e) {
+      alert(e);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   useEffect(() => {
@@ -183,7 +172,11 @@ export const Proposals = () => {
         <HStack width="full" height="full">
           <VStack width="full" height="full" spacing={10} alignItems="start" alignContent="start">
             <Heading color="white">Proposals</Heading>
-            {proposalAccount ? <Text>Total Tokens Locked - { proposalAccount.totalVotes.toNumber()/LAMPORTS_PER_SOL}</Text> : <></>}
+            {proposalAccount ? (
+              <Text>Total Tokens Locked - {proposalAccount.totalVotes.toNumber() / LAMPORTS_PER_SOL}</Text>
+            ) : (
+              <></>
+            )}
             <Button
               bgColor="#FF5B37"
               onClick={execProposal}
@@ -192,7 +185,7 @@ export const Proposals = () => {
             >
               Execute
             </Button>
-            <TableContainer>
+            <TableContainer marginBottom="100px">
               <Table variant="simple">
                 <Thead>
                   <Tr>
@@ -207,6 +200,7 @@ export const Proposals = () => {
               </Table>
             </TableContainer>
           </VStack>
+          <Image src={marni} />
         </HStack>
       </VStack>
     </>

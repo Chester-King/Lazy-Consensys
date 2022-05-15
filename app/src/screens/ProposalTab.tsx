@@ -1,36 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import marni from './marni.png';
-import {
-  Button,
-  Heading,
-  HStack,
-  Image,
-  VStack,
-  Box,
-  Text,
-  useDisclosure,
-  Modal,
-  ModalBody,
-  ModalCloseButton,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  ModalOverlay,
-  Input,
-  FormControl,
-  FormLabel,
-  Textarea,
-  Table,
-  Thead,
-  Tbody,
-  Tfoot,
-  Tr,
-  Th,
-  Td,
-  TableCaption,
-  TableContainer,
-} from '@chakra-ui/react';
-import { useAnchorWallet, useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { Button, Tr, Td } from '@chakra-ui/react';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import * as anchor from '@project-serum/anchor';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { Link } from 'react-router-dom';
@@ -117,25 +88,31 @@ export const ProposalTab = (prop: AppProps) => {
   const voteProposal = async () => {
     console.log(prop.index, prop.expiryTime, prop.userAddress, prop.amountTransfer);
     setSubmitting(true);
-    await anchorProgram.methods
-      .votesProposal(
-        new anchor.BN(prop.index),
-        new anchor.BN(prop.expiryTime as number),
-        new PublicKey(prop.userAddress),
-        new anchor.BN(prop.amountTransfer)
-      )
-      .accounts({
-        proposalAccount: PROPOSAL_ACCOUNT,
-        userAccount: userPDA,
-      })
-      .rpc();
-    //onOpen();
-    setSubmitting(false);
+    try {
+      await anchorProgram.methods
+        .votesProposal(
+          new anchor.BN(prop.index),
+          new anchor.BN(prop.expiryTime as number),
+          new PublicKey(prop.userAddress),
+          new anchor.BN(prop.amountTransfer)
+        )
+        .accounts({
+          proposalAccount: PROPOSAL_ACCOUNT,
+          userAccount: userPDA,
+        })
+        .rpc();
+        setSubmitting(false);
+        window.location.reload();
+    } catch (e) {
+      alert(e);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const execProposal = async () => {
-    let reciever = new PublicKey(prop.userAddress)
-    console.log(prop.userAddress)
+    let reciever = new PublicKey(prop.userAddress);
+    console.log(prop.userAddress);
     setSubmitting(true);
     anchorProgram.methods
       .execute()

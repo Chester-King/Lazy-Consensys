@@ -52,8 +52,8 @@ export const Proposals = () => {
   const [provider, setProvider] = useState<any>();
   const { connection } = useConnection();
   const [amount, setAmount] = useState('');
-  const [test, setTest] = useState();
-  const [reciever, setReciever] = useState<PublicKey>("");
+  const [test, setTest] = useState<JSX.Element[]>();
+  const [reciever, setReciever] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const signerWallet = {
     publicKey: publicKey,
@@ -102,17 +102,53 @@ export const Proposals = () => {
       let propac = await anchorProgram.account.proposalAccount.fetch(PROPOSAL_ACCOUNT);
       console.log(propac);
       let tab = [];
-      for(let i = 0; i < propac.userAddresses.length; i++) {
-          let dat = new Date(propac.expiryTime[i].toNumber() * 1000);
-          let exp = [dat.getDate(), dat.getMonth(), dat.getFullYear(), dat.getHours(), dat.getMinutes(), dat.getSeconds()]
-          tab.push(<Tr><Td>{propac.userAddresses[i].toString()}</Td><Td>{propac.amountTransfer[i].toString()}</Td><Td>{exp[0]}/{exp[1]}/{exp[2]} {exp[3]}:{exp[4]}:{exp[5]}</Td><Td>{propac.keysVoted[i].length}</Td><Td><Button bgColor="#FF5B37" onClick={voteProposal} isDisabled={!publicKey || !amount || !reciever || submitting} isLoading={submitting}>Vote</Button></Td><Td><Button bgColor="#FF5B37" onClick={execProposal} isDisabled={!publicKey || !amount || !reciever || submitting} isLoading={submitting}>Execute</Button></Td></Tr>)
+      for (let i = 0; i < propac.userAddresses.length; i++) {
+        let dat = new Date(propac.expiryTime[i].toNumber() * 1000);
+        let exp = [
+          dat.getDate(),
+          dat.getMonth(),
+          dat.getFullYear(),
+          dat.getHours(),
+          dat.getMinutes(),
+          dat.getSeconds(),
+        ];
+        tab.push(
+          <Tr>
+            <Td>{propac.userAddresses[i].toString()}</Td>
+            <Td>{propac.amountTransfer[i].toString()}</Td>
+            <Td>
+              {exp[0]}/{exp[1]}/{exp[2]} {exp[3]}:{exp[4]}:{exp[5]}
+            </Td>
+            <Td>{propac.keysVoted[i].length}</Td>
+            <Td>
+              <Button
+                bgColor="#FF5B37"
+                onClick={voteProposal}
+                isDisabled={!publicKey || submitting}
+                isLoading={submitting}
+              >
+                Vote
+              </Button>
+            </Td>
+            <Td>
+              <Button
+                bgColor="#FF5B37"
+                onClick={execProposal}
+                isDisabled={!publicKey || submitting}
+                isLoading={submitting}
+              >
+                Execute
+              </Button>
+            </Td>
+          </Tr>
+        );
       }
-      
-      setTest(tab)
-    } catch(err) {
-      console.log(err)
+
+      setTest(tab);
+    } catch (err) {
+      console.log(err);
     }
-    return "bald"
+    return 'bald';
   };
 
   const voteProposal = async () => {
@@ -158,22 +194,20 @@ export const Proposals = () => {
           <VStack width="full" height="full" spacing={10} alignItems="start" alignContent="start">
             <Heading color="white">Proposals</Heading>
             <TableContainer>
-  <Table variant='simple'>
-    <Thead>
-      <Tr>
-        <Th>Proposal Address</Th>
-        <Th>Amount</Th>
-        <Th>Expiry Time</Th>
-        <Th>Votes</Th>
-        <Th>Vote</Th>
-        <Th>EXecute</Th>
-      </Tr>
-    </Thead>
-    <Tbody>
-        {test}
-    </Tbody>
-  </Table>
-</TableContainer>
+              <Table variant="simple">
+                <Thead>
+                  <Tr>
+                    <Th>Proposal Address</Th>
+                    <Th>Amount</Th>
+                    <Th>Expiry Time</Th>
+                    <Th>Votes</Th>
+                    <Th>Vote</Th>
+                    <Th>EXecute</Th>
+                  </Tr>
+                </Thead>
+                <Tbody>{test}</Tbody>
+              </Table>
+            </TableContainer>
           </VStack>
           <Image src={marni} />
         </HStack>

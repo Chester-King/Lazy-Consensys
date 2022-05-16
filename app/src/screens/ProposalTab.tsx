@@ -31,6 +31,7 @@ export const ProposalTab = (prop: AppProps) => {
   const [test, setTest] = useState<JSX.Element[]>();
   const [reciever, setReciever] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [date, setDate] = useState("")
   const signerWallet = {
     publicKey: publicKey,
     signTransaction: signTransaction,
@@ -73,6 +74,20 @@ export const ProposalTab = (prop: AppProps) => {
     setUserPDA(PDA);
   };
 
+  const calcTime = () => {
+    let dat = new Date(prop.expiryTime * 1000);
+    let exp = [
+      dat.getDate(),
+      dat.getMonth() + 1,
+      dat.getFullYear(),
+      dat.getHours(),
+      dat.getMinutes(),
+      dat.getSeconds()
+    ];
+    let exp_dat = `${exp[0]}/${exp[1]}/${exp[2]} ${exp[3]}:${exp[4]}:${exp[5]}`;
+    setDate(exp_dat);
+  }
+
   useEffect(() => {
     getProvider();
   }, [wallet, publicKey]);
@@ -84,6 +99,10 @@ export const ProposalTab = (prop: AppProps) => {
   useEffect(() => {
     loadPDA();
   }, [wallet, publicKey]);
+
+  useEffect(() => {
+    calcTime();
+  }, []);
 
   const voteProposal = async () => {
     console.log(prop.index, prop.expiryTime, prop.userAddress, prop.amountTransfer);
@@ -148,7 +167,7 @@ export const ProposalTab = (prop: AppProps) => {
       <Tr>
         <Td>{prop.userAddress}</Td>
         <Td>{prop.amountTransfer}</Td>
-        <Td>{prop.expiryTime}</Td>
+        <Td>{date}</Td>
         <Td>{prop.votes}</Td>
         <Td>
           <Button bgColor="#FF5B37" onClick={voteProposal} isDisabled={!publicKey || submitting} isLoading={submitting}>
